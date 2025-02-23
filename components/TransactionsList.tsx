@@ -1,6 +1,7 @@
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { formatCurrency } from '@/utils/currency';
 
 export type TransactionType = 'expense' | 'income' | 'transfer';
 
@@ -181,7 +182,7 @@ export function TransactionItem({ transaction, onPress }: TransactionItemProps) 
         </View>
         <View style={styles.transactionRight}>
           <Text style={[styles.transactionAmount, { color: isExpense ? '#FF3B30' : '#2DC653' }]}>
-            {isExpense ? '-' : '+'}${Math.abs(transaction.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            {isExpense ? '-' : '+'}{formatCurrency(Math.abs(transaction.amount))}
           </Text>
           <Text style={styles.transactionDate}>{transaction.date}</Text>
         </View>

@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import Animated, { FadeIn, SlideInRight } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { formatCurrency } from "@/utils/currency";
 
 function CreditCard() {
 	const { width } = useWindowDimensions();
@@ -30,7 +31,7 @@ function CreditCard() {
 				end={{ x: 1, y: 1 }}
 			>
 				<View style={styles.cardContent}>
-					<Text style={styles.cardBalance}>$ 37,249.00</Text>
+					<Text style={styles.cardBalance}>{formatCurrency(37249.00)}</Text>
 					<View style={styles.cardFooter}>
 						<Text style={styles.cardLabel}>Family</Text>
 						<Text style={styles.cardExpiry}>11/26</Text>
@@ -92,6 +93,8 @@ const GridPattern = () => {
 
 export default function LandingScreen() {
 	const { user } = useAuth();
+
+	console.log(user)
 
 	if (user) {
 		return <Redirect href="/(stack)" />

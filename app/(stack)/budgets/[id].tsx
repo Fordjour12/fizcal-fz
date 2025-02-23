@@ -4,6 +4,7 @@ import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { AddRecordModal } from '@/components/AddRecordModal';
+import { formatCurrency } from '@/utils/currency';
 
 interface TransactionProps {
   type: string;
@@ -32,7 +33,7 @@ function Transaction({ type, amount, date, category, paymentMethod, icon, iconCo
       </View>
       <View style={styles.transactionRight}>
         <Text style={[styles.transactionAmount, { color: isExpense ? '#FF3B30' : '#2DC653' }]}>
-          {isExpense ? '-' : ''}${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+          {isExpense ? '-' : ''}{formatCurrency(Math.abs(amount))}
         </Text>
         <Text style={styles.transactionDate}>{date}</Text>
       </View>

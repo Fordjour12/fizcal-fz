@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
+import { formatCurrency } from '@/utils/currency';
 
 interface BudgetCardProps {
   amountLeft: number;
@@ -61,11 +62,11 @@ export function BudgetCard({ amountLeft, amountSpent, categories, onPressAllBudg
         </View>
 
         <Text style={styles.budgetAmount}>
-          ${amountLeft.toLocaleString('en-US', { minimumFractionDigits: 2 })} 
+          {formatCurrency(amountLeft)}
           <Text style={styles.budgetLabel}>left</Text>
         </Text>
         <Text style={styles.budgetSpent}>
-          -${amountSpent.toLocaleString('en-US', { minimumFractionDigits: 2 })} spent this month
+          -{formatCurrency(amountSpent)} spent this month
         </Text>
         
         <View style={styles.progressBar}>
@@ -82,7 +83,7 @@ export function BudgetCard({ amountLeft, amountSpent, categories, onPressAllBudg
                 <View>
                   <Text style={styles.categoryTitle}>{category.title}</Text>
                   <Text style={styles.categorySpent}>
-                    ${category.spent.toLocaleString('en-US')} spent
+                    {formatCurrency(category.spent)} spent
                   </Text>
                 </View>
               </View>

@@ -1,5 +1,6 @@
 import { AddRecordModal } from "@/components/AddRecordModal";
 import { BudgetCard } from "@/components/BudgetCard";
+import { formatCurrency } from "@/utils/currency";
 import {
 	type NewTransaction,
 	TODAY_TRANSACTIONS,
@@ -38,7 +39,7 @@ function AccountItem({ title, type, amount, color }: AccountItemProps) {
 				</View>
 			</View>
 			<Text style={styles.accountAmount}>
-				$ {amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+				{formatCurrency(amount)}
 			</Text>
 		</Animated.View>
 	);
@@ -130,10 +131,7 @@ export default function DashboardScreen() {
 						>
 							<View style={styles.balanceHeader}>
 								<Text style={styles.balance}>
-									${" "}
-									{totalBalance.toLocaleString("en-US", {
-										minimumFractionDigits: 2,
-									})}
+									{formatCurrency(totalBalance)}
 								</Text>
 								<Animated.View style={[styles.chevron, chevronStyle]}>
 									<Ionicons name="chevron-down" size={24} color="#fff" />
@@ -141,9 +139,7 @@ export default function DashboardScreen() {
 							</View>
 							<View style={styles.growthContainer}>
 								<Text style={styles.growthAmount}>
-									+
-									{growth.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-									$
+									+{formatCurrency(growth)}
 								</Text>
 								<Text style={styles.growthPercentage}>
 									{growthPercentage}% the last year

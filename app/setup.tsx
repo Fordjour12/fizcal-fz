@@ -142,6 +142,7 @@ const SetupScreenContent: React.FC = () => {
 	const [errors, setErrors] = useState<Record<string, string>>({});
 
 	const db = useDB();
+	const { signIn } = useAuth();
 
 	const validateStep = useCallback(
 		(step: number): boolean => {
@@ -274,13 +275,12 @@ const SetupScreenContent: React.FC = () => {
 						balance: Number.parseFloat(account.balance),
 					});
 				}
+			});
 
-				// Sign in the user
-				const { signIn } = useAuth();
-				await signIn({ 
-					email: formData.email, 
-					password: formData.password 
-				});
+			// Sign in the user after successful account creation
+			await signIn({ 
+				email: formData.email, 
+				password: formData.password 
 			});
 
 			router.replace("/(stack)");

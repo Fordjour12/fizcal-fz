@@ -2,6 +2,7 @@ import { StyleSheet, View, Text, Pressable, ScrollView } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { formatCurrency } from '@/utils/currency';
 
 interface BudgetItemProps {
   title: string;
@@ -26,7 +27,7 @@ function BudgetItem({ title, amount, spent, progress, isOverspent }: BudgetItemP
       </View>
       
       <Text style={styles.budgetAmount}>
-        ${amount.toLocaleString('en-US')}
+        {formatCurrency(amount)}
       </Text>
       
       <View style={styles.progressBar}>
@@ -34,11 +35,11 @@ function BudgetItem({ title, amount, spent, progress, isOverspent }: BudgetItemP
       </View>
       
       <View style={styles.budgetDetails}>
-        <Text style={styles.spentAmount}>-${spent.toLocaleString('en-US')} spent</Text>
+        <Text style={styles.spentAmount}>-{formatCurrency(spent)} spent</Text>
         <Text style={[styles.remainingAmount, { color: isOverspent ? '#FF3B30' : '#fff' }]}>
           {isOverspent ? 
-            `$${Math.abs(amountLeft).toLocaleString('en-US')} overspending` :
-            `$${amountLeft.toLocaleString('en-US')} left`
+            `${formatCurrency(Math.abs(amountLeft))} overspending` :
+            `${formatCurrency(amountLeft)} left`
           }
         </Text>
       </View>
@@ -63,7 +64,7 @@ export default function BudgetsScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.totalBudget}>
           <Text style={styles.totalTitle}>Total Budget</Text>
-          <Text style={styles.totalAmount}>${totalBudget.toLocaleString('en-US')}</Text>
+          <Text style={styles.totalAmount}>{formatCurrency(totalBudget)}</Text>
           <Text style={styles.percentageText}>{totalProgress}%</Text>
           
           <View style={styles.progressBar}>
@@ -72,10 +73,10 @@ export default function BudgetsScreen() {
           
           <View style={styles.totalDetails}>
             <Text style={styles.spentAmount}>
-              -${totalSpent.toLocaleString('en-US')} spent
+              -{formatCurrency(totalSpent)} spent
             </Text>
             <Text style={styles.remainingAmount}>
-              ${(totalBudget - totalSpent).toLocaleString('en-US')} left
+              {formatCurrency(totalBudget - totalSpent)} left
             </Text>
           </View>
         </View>

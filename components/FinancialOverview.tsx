@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { Text } from './Themed';
 import { useMemo } from 'react';
+import { formatCurrency } from '@/utils/currency';
 
 interface FinancialMetric {
   label: string;
@@ -16,9 +17,9 @@ export function FinancialOverview({ metrics = [] }: FinancialOverviewProps) {
   const displayMetrics = useMemo(() => {
     if (metrics.length) return metrics;
     return [
-      { label: 'Total Balance', value: '$0.00' },
-      { label: 'Income', value: '$0.00', trend: 0 },
-      { label: 'Expenses', value: '$0.00', trend: 0 },
+      { label: 'Total Balance', value: formatCurrency(0) },
+      { label: 'Income', value: formatCurrency(0), trend: 0 },
+      { label: 'Expenses', value: formatCurrency(0), trend: 0 },
     ];
   }, [metrics]);
 

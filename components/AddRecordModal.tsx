@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useState } from 'react';
 import { TransactionType, NewTransaction, TRANSACTION_CATEGORIES, PAYMENT_METHODS } from './TransactionsList';
+import { formatCurrency } from '@/utils/currency';
 
 interface Styles {
   modalOverlay: ViewStyle;
@@ -120,7 +121,7 @@ export function AddRecordModal({ visible, onClose, onAdd }: AddRecordModalProps)
             </View>
 
             <View style={styles.amountContainer}>
-              <Text style={styles.currencySymbol}>$</Text>
+              <Text style={styles.currencySymbol}>GH₵</Text>
               <TextInput
                 style={styles.amountInput}
                 value={amount}

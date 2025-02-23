@@ -10,6 +10,7 @@ import {
   NewTransaction, 
   TRANSACTION_CATEGORIES 
 } from '@/components/TransactionsList';
+import { formatCurrency } from '@/utils/currency';
 
 
 
@@ -69,7 +70,7 @@ export default function TransactionsScreen() {
             <Text style={styles.balanceLabel}>Total Balance</Text>
             <Pressable style={styles.balanceButton}>
               <Text style={styles.balanceAmount}>
-                ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                {formatCurrency(totalBalance)}
               </Text>
               <Ionicons name="chevron-down-outline" size={20} color="#666" />
             </Pressable>
@@ -91,11 +92,11 @@ export default function TransactionsScreen() {
           <View style={styles.quickStats}>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Income</Text>
-              <Text style={[styles.statAmount, { color: '#2DC653' }]}>+$3,500.00</Text>
+              <Text style={[styles.statAmount, { color: '#2DC653' }]}>+{formatCurrency(3500.00)}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Expenses</Text>
-              <Text style={[styles.statAmount, { color: '#FF3B30' }]}>-$164.46</Text>
+              <Text style={[styles.statAmount, { color: '#FF3B30' }]}>-{formatCurrency(164.46)}</Text>
             </View>
           </View>
 
