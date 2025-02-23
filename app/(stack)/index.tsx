@@ -49,6 +49,9 @@ export default function DashboardScreen() {
 	const [isAddModalVisible, setIsAddModalVisible] = useState(false);
 	const [isAccountsExpanded, setIsAccountsExpanded] = useState(false);
 	const { accounts, isLoading, totalBalance, error, refresh } = useAccounts();
+	console.log('Dashboard state:', { isLoading, accounts, error });
+
+	const accountsList = accounts || [];
 
 	const chevronStyle = useAnimatedStyle(() => ({
 		transform: [
@@ -145,47 +148,48 @@ export default function DashboardScreen() {
 									{growthPercentage}% the last year
 								</Text>
 							</View>
-
-							<Animated.View style={[styles.accountsDropdown, dropdownStyle]}>
-								{isLoading ? (
-									<View style={styles.loadingContainer}>
-										<Text style={styles.loadingText}>Loading accounts...</Text>
-									</View>
-								) : error ? (
-									<View style={styles.errorContainer}>
-										<Ionicons name="alert-circle-outline" size={24} color="#ff4444" />
-										<Text style={styles.errorText}>{error.message}</Text>
-										<Pressable style={styles.retryButton} onPress={refresh}>
-											<Text style={styles.retryText}>Retry</Text>
-										</Pressable>
-									</View>
-								) : accounts.length === 0 ? (
-									<View style={styles.emptyContainer}>
-										<Ionicons name="wallet-outline" size={24} color="#999" />
-										<Text style={styles.emptyText}>No accounts found</Text>
-										<Pressable 
-											style={styles.addAccountButton}
-											onPress={() => router.push("/(stack)/accounts/new")}
-										>
-											<Text style={styles.addAccountText}>Add Account</Text>
-										</Pressable>
-									</View>
-								) : (
-									accounts.map((account) => (
-										<Pressable 
-											key={account.accountId}
-											onPress={() => router.push(`/(stack)/accounts/${account.accountId}`)}
-										>
-											<AccountItem
-												title={account.accountName}
-												type={account.accountType}
-												amount={account.balance}
-												color={account.color || "#757575"}
-											/>
-										</Pressable>
-									))
-								)}
-							</Animated.View>
+							{isLoading ? (
+								<View style={styles.loadingContainer}>
+									<Text style={styles.loadingText}>Loading accounts...</Text>
+								</View>
+							) : (
+								<Animated.View style={[styles.accountsDropdown, dropdownStyle]}>
+									{error ? (
+										<View style={styles.errorContainer}>
+											<Ionicons name="alert-circle-outline" size={24} color="#ff4444" />
+											<Text style={styles.errorText}>{error.message}</Text>
+											<Pressable style={styles.retryButton} onPress={refresh}>
+												<Text style={styles.retryText}>Retry</Text>
+											</Pressable>
+										</View>
+									) : accountsList.length === 0 ? (
+										<View style={styles.emptyContainer}>
+											<Ionicons name="wallet-outline" size={24} color="#999" />
+											<Text style={styles.emptyText}>No accounts found</Text>
+											<Pressable 
+												style={styles.addAccountButton}
+												onPress={() => router.push("/(stack)/accounts/new")}
+											>
+												<Text style={styles.addAccountText}>Add Account</Text>
+											</Pressable>
+										</View>
+									) : (
+										accountsList.map((account) => (
+											<Pressable 
+												key={account.accountId}
+												onPress={() => router.push(`/(stack)/accounts/${account.accountId}`)}
+											>
+												<AccountItem
+													title={account.accountName}
+													type={account.accountType}
+													amount={account.balance}
+													color={account.color || "#757575"}
+												/>
+											</Pressable>
+										))
+									)}
+								</Animated.View>
+							)}
 						</Animated.View>
 					</Pressable>
 				</View>

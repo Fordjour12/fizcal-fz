@@ -1,7 +1,7 @@
 import { accounts } from "@/db/schema";
 import { useAuth } from "@/hooks/useAuth";
 import { eq } from "drizzle-orm";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import useDB from "@/hooks/useDB";
 
 export type AccountType = "checking" | "savings" | "credit_card" | "cash" | "investment";
@@ -28,12 +28,26 @@ export function useAccounts() {
   const [accountsList, setAccountsList] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [totalBalance, setTotalBalance] = useState(0);
   
   const db = useDB();
   const { user } = useAuth();
+  
+  // Use refs to avoid dependency changes
+  const dbRef = useRef(db);
+  const userRef = useRef(user);
+
+  // Update refs when values change
+  useEffect(() => {
+    dbRef.current = db;
+    userRef.current = user;
+  }, [db, user]);
 
   const fetchAccounts = useCallback(async () => {
-    if (!user) {
+    console.log('Fetching accounts...', { user: userRef.current });
+    
+    if (!userRef.current) {
+      console.log('No user found');
       setError(new Error('No user logged in'));
       setIsLoading(false);
       return;
@@ -41,12 +55,14 @@ export function useAccounts() {
 
     try {
       setIsLoading(true);
-      const result = await db.select()
+      console.log('Querying database for user:', userRef.current.userId);
+      const result = await dbRef.current.select()
         .from(accounts)
-        .where(eq(accounts.userId, user.userId))
+        .where(eq(accounts.userId, userRef.current.userId))
         .orderBy(accounts.accountType, accounts.accountName);
 
-      // Add colors to accounts based on their type
+      console.log('Query result:', result);
+
       const accountsWithColors = result.map(account => ({
         accountId: account.accountId,
         userId: account.userId,
@@ -57,25 +73,30 @@ export function useAccounts() {
         color: DEFAULT_COLORS[account.accountType as AccountType] || "#757575"
       }));
 
+      console.log('Processed accounts:', accountsWithColors);
       setAccountsList(accountsWithColors);
+      setTotalBalance(accountsWithColors.reduce((sum, account) => sum + account.balance, 0));
     } catch (err) {
+      console.error('Error fetching accounts:', err);
       setError(err instanceof Error ? err : new Error("Failed to fetch accounts"));
     } finally {
       setIsLoading(false);
     }
-  }, [db, user]);
+  }, []); // Empty dependencies since we're using refs
 
   useEffect(() => {
     fetchAccounts();
   }, [fetchAccounts]);
 
-  const totalBalance = accountsList.reduce((sum, account) => sum + account.balance, 0);
+  const refresh = useCallback(() => {
+    fetchAccounts();
+  }, [fetchAccounts]);
 
   return {
     accounts: accountsList,
     isLoading,
     error,
     totalBalance,
-    refresh: fetchAccounts
+    refresh
   };
 }
