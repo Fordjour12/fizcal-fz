@@ -7,7 +7,14 @@ export default function BudgetsLayout() {
 			<Stack.Screen
 				name="index"
 				options={{
-					headerShown: false,
+					title: 'All Budgets',
+				}}
+			/>
+			<Stack.Screen
+				name="new"
+				options={{
+					title: 'New Budget',
+					presentation: 'modal',
 				}}
 			/>
 			<Stack.Screen
@@ -15,13 +22,7 @@ export default function BudgetsLayout() {
 				options={{
 					headerShown: false,
 				}}
-			/>
-			<Stack.Screen
-				name="new"
-				options={{
-					headerShown: false,
-				}}
-			/>
+			/>	
 		</Stack>
 	);
 } 

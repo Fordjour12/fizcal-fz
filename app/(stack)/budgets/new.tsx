@@ -1,4 +1,4 @@
-import { budgets, categories } from "@/db/schema";
+import { budgets, categories, type InsertBudget } from "@/db/schema";
 import { useAuth } from "@/hooks/useAuth";
 import useDB from "@/hooks/useDB";
 import { Ionicons } from "@expo/vector-icons";
@@ -95,6 +95,10 @@ export default function NewBudgetScreen() {
 				throw new Error("Please select a category");
 			}
 
+			if (!user?.userId) {
+				throw new Error("You must be logged in");
+			}
+
 			const amount = Number.parseFloat(budgetAmount.replace(/[^0-9.-]+/g, ""));
 			if (Number.isNaN(amount)) {
 				throw new Error("Invalid budget amount");
@@ -120,16 +124,18 @@ export default function NewBudgetScreen() {
 					break;
 			}
 
-			await db.insert(budgets).values({
-				user_id: Number(user?.userId),
-				category_id: selectedCategoryId,
-				budget_name: budgetName.trim(),
-				budget_amount: amount,
-				period_type: periodType,
-				start_date: startDate.toISOString(),
-				end_date: endDate.toISOString(),
+			const budgetData: InsertBudget = {
+				userId: user.userId,
+				categoryId: selectedCategoryId,
+				budgetName: budgetName.trim(),
+				budgetAmount: amount,
+				periodType,
+				startDate,
+				endDate,
 				rollover: false,
-			});
+			};
+
+			await db.insert(budgets).values([budgetData]);
 
 			router.back();
 		} catch (err) {
@@ -349,3 +355,4 @@ const styles = StyleSheet.create({
 		marginBottom: 16,
 	},
 }); 
+ 

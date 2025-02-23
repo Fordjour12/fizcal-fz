@@ -239,7 +239,7 @@ export default function DashboardScreen() {
 				</View>
 
 				<View style={styles.budgetSection}>
-					<Pressable onPress={() => router.push("/(stack)/budgets")}>
+					<Pressable onPress={() => router.push("/(stack)/budgets/")}>
 						<BudgetCard
 							amountLeft={14500.0}
 							amountSpent={12450.3}
