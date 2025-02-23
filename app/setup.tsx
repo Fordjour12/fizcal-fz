@@ -1,288 +1,610 @@
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import * as schema from "@/db/schema";
 import useDB from "@/hooks/useDB";
-import { Ionicons } from "@expo/vector-icons";
-import * as Crypto from "expo-crypto";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	Alert,
+	Keyboard,
+	Pressable,
+	ScrollView,
+	StyleSheet,
+	Text,
+	TextInput,
+	View,
+	useWindowDimensions,
+} from "react-native";
+import Animated, {
+	FadeInDown,
+	FadeInRight,
+	SlideInRight,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { z } from "zod";
 
-interface SetupStep {
-  title: string;
-  subtitle: string;
-  fields: Array<{
-    key: string;
-    label: string;
-    placeholder: string;
-    type?: "text" | "currency";
-    keyboardType?: "default" | "numeric" | "email-address";
-  }>;
+// Types and constants
+type AccountType =
+	| "checking"
+	| "savings"
+	| "credit_card"
+	| "cash"
+	| "investment";
+
+const ACCOUNT_TYPES: Record<
+	AccountType,
+	{ name: string; icon: string; color: string }
+> = {
+	checking: { name: "Checking", icon: "bank", color: "#6366F1" },
+	savings: { name: "Savings", icon: "piggy-bank", color: "#8B5CF6" },
+	cash: { name: "Cash", icon: "wallet", color: "#EC4899" },
+	credit_card: { name: "Credit Card", icon: "credit-card", color: "#F43F5E" },
+	investment: { name: "Investment", icon: "chart-line", color: "#10B981" },
+} as const;
+
+interface FormData {
+	firstName: string;
+	lastName: string;
+	email: string;
+	accounts: Array<{
+		name: string;
+		type: AccountType;
+		balance: string;
+	}>;
 }
 
-const SETUP_STEPS: SetupStep[] = [
-  {
-    title: "Let's get started",
-    subtitle: "First, tell us about yourself",
-    fields: [
-      { key: "firstName", label: "First Name", placeholder: "John" },
-      { key: "lastName", label: "Last Name", placeholder: "Doe" },
-      { key: "email", label: "Email", placeholder: "john@example.com", keyboardType: "email-address" },
-    ],
-  },
-  {
-    title: "Set up your accounts",
-    subtitle: "Add your main accounts to get started",
-    fields: [
-      { key: "checkingName", label: "Checking Account Name", placeholder: "Main Checking" },
-      { key: "checkingBalance", label: "Current Balance", placeholder: "0.00", type: "currency", keyboardType: "numeric" },
-      { key: "savingsName", label: "Savings Account Name", placeholder: "Emergency Fund" },
-      { key: "savingsBalance", label: "Current Balance", placeholder: "0.00", type: "currency", keyboardType: "numeric" },
-    ],
-  },
-];
+const INITIAL_FORM_DATA: FormData = {
+	firstName: "",
+	lastName: "",
+	email: "",
+	accounts: [
+		{ name: "", type: "checking", balance: "" },
+		{ name: "", type: "savings", balance: "" },
+	],
+};
 
-export default function SetupAccountScreen() {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState<Record<string, string>>({
-    firstName: "",
-    lastName: "",
-    email: "",
-    checkingName: "",
-    checkingBalance: "",
-    savingsName: "",
-    savingsBalance: "",
-  });
-	const [accountName, setAccountName] = useState<string>("");
-	const [initialBalance, setInitialBalance] = useState<string>("");
-	const [loading, setLoading] = useState<boolean>(false);
+// Validation schemas
+const emailSchema = z.string().email("Please enter a valid email address");
+const balanceSchema = z.string().refine((val) => {
+	const num = Number.parseFloat(val);
+	return !Number.isNaN(num) && num >= 0;
+}, "Please enter a valid positive number");
 
-	const db = useDB();
-
-	const { user } = useAuth();
-
-	const router = useRouter();
-
-	const handleNext = async () => {
-		const UUID = Crypto.randomUUID();
-		try {
-			setLoading(true);
-			// Save the account data (e.g., call to local DB or state management)
-			const accountData = {
-				id: UUID,
-				type: accountType,
-				name: accountName,
-				balance: Number.parseFloat(initialBalance),
-			};
-
-			// drizzleDB.insert(accounts).
-			const insertAccount = await drizzleDB.insert(schema.accounts).values({
-				userId: String(user?.id),
-				...accountData,
-			});
-
-			// Here you would typically save to your storage solution
-			console.log("Saving account:", insertAccount.lastInsertRowId);
-
-			// Navigate to dashboard with initial state
-			router.replace("/(tabs)");
-		} catch (error) {
-			console.error("Error creating account:", error);
-			// Here you might want to show an error message to the user
-		} finally {
-			setLoading(false);
-		}
-	};
-
+// Reusable components
+function Input({
+	label,
+	error,
+	inputRef,
+	...props
+}: {
+	label: string;
+	error?: string;
+	inputRef?: React.RefObject<TextInput>;
+} & React.ComponentProps<typeof TextInput>) {
 	return (
-		<View style={styles.container}>
-			<View style={styles.content}>
-				<Text style={styles.title}>Let's Get Started!</Text>
-				<Text style={styles.subtitle}>
-					Tell us about your first account. This will help you track your
-					finances effortlessly.
-				</Text>
-				<TextInput
-					style={styles.input}
-					placeholder="e.g., My Savings Account, Mobile Wallet"
-					placeholderTextColor="#94A3B8"
-					value={accountName}
-					onChangeText={setAccountName}
-				/>
-				<TextInput
-					style={styles.input}
-					placeholder="Bank, Mobile Money, or Other"
-					placeholderTextColor="#94A3B8"
-					value={accountType}
-					onChangeText={setAccountType}
-				/>
-				<TextInput
-					style={styles.input}
-					placeholder="e.g., 500.00"
-					placeholderTextColor="#94A3B8"
-					keyboardType="numeric"
-					value={initialBalance}
-					onChangeText={setInitialBalance}
-				/>
-				<Text style={styles.helperText}>
-					Don't worry; you can always add more accounts later.
-				</Text>
-				<Pressable
-					onPress={handleNext}
-					disabled={!accountName || !initialBalance || loading}
-					style={({ pressed }) => [
-						{
-							opacity:
-								!accountName || !initialBalance || loading
-									? 0.5
-									: pressed
-										? 0.8
-										: 1,
-						},
-					]}
-				>
-					<LinearGradient
-						colors={["#8B5CF6", "#6366F1"]}
-						start={{ x: 0, y: 0 }}
-						end={{ x: 1, y: 1 }}
-						style={styles.button}
-					>
-						<Text style={styles.buttonText}>
-							{loading ? "Loading..." : "Start Tracking"}
-						</Text>
-					</LinearGradient>
-				</Pressable>
-			</View>
+		<View style={styles.inputGroup}>
+			<Text style={styles.label}>{label}</Text>
+			<TextInput
+				ref={inputRef}
+				style={[styles.input, error && styles.inputError]}
+				placeholderTextColor="#9CA3AF"
+				{...props}
+			/>
+			{error && <Text style={styles.errorText}>{error}</Text>}
 		</View>
 	);
 }
 
-  const db = useDB();
-
-  const handleInputChange = (key: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleNext = async () => {
-    if (currentStep < SETUP_STEPS.length - 1) {
-      setCurrentStep((prev) => prev + 1);
-    } else {
-      // Create user
-      const userId = Crypto.randomUUID();
-      await db.insert(schema.users).values({
-        userId,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-      });
-
-      // Create checking account
-      const checkingId = Crypto.randomUUID();
-      await db.insert(schema.accounts).values({
-        accountId: checkingId,
-        userId,
-        accountName: formData.checkingName,
-        accountType: "checking",
-        balance: parseFloat(formData.checkingBalance),
-      });
-
-      // Create savings account
-      const savingsId = Crypto.randomUUID();
-      await db.insert(schema.accounts).values({
-        accountId: savingsId,
-        userId,
-        accountName: formData.savingsName,
-        accountType: "savings",
-        balance: parseFloat(formData.savingsBalance),
-      });
-
-      router.replace("/");
-    }
-  };
-
-  const currentStepData = SETUP_STEPS[currentStep];
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <Animated.View entering={FadeInDown} style={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{currentStepData.title}</Text>
-          <Text style={styles.subtitle}>{currentStepData.subtitle}</Text>
-        </View>
-
-        <View style={styles.form}>
-          {currentStepData.fields.map((field) => (
-            <View key={field.key} style={styles.inputContainer}>
-              <Text style={styles.label}>{field.label}</Text>
-              <TextInput
-                style={styles.input}
-                placeholder={field.placeholder}
-                placeholderTextColor="#666"
-                value={formData[field.key]}
-                onChangeText={(value) => handleInputChange(field.key, value)}
-                keyboardType={field.keyboardType || "default"}
-              />
-            </View>
-          ))}
-        </View>
-
-        <Pressable style={styles.button} onPress={handleNext}>
-          <Text style={styles.buttonText}>
-            {currentStep === SETUP_STEPS.length - 1 ? "Finish" : "Next"}
-          </Text>
-          <Ionicons name="arrow-forward" size={20} color="#fff" />
-        </Pressable>
-      </Animated.View>
-    </SafeAreaView>
-  );
+function AccountTypeButton({
+	type,
+	isSelected,
+	onPress,
+}: {
+	type: AccountType;
+	isSelected: boolean;
+	onPress: () => void;
+}) {
+	const { name, icon, color } = ACCOUNT_TYPES[type];
+	return (
+		<Pressable
+			style={[styles.accountTypeButton, isSelected && { borderColor: color }]}
+			onPress={onPress}
+			accessibilityRole="radio"
+			accessibilityState={{ checked: isSelected }}
+			accessibilityLabel={`${name} account type`}
+		>
+			<MaterialCommunityIcons
+				name={icon}
+				size={20}
+				color={isSelected ? color : "#9CA3AF"}
+			/>
+			<Text
+				style={[
+					styles.accountTypeText,
+					isSelected && { color, fontWeight: "500" },
+				]}
+			>
+				{name}
+			</Text>
+		</Pressable>
+	);
 }
 
+// Main component
+const SetupScreenContent: React.FC = () => {
+	const { width } = useWindowDimensions();
+	const isNarrowScreen = width < 380;
+	const [keyboardVisible, setKeyboardVisible] = useState(false);
+	const lastNameRef = useRef<TextInput>(null);
+	const emailRef = useRef<TextInput>(null);
+	const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
+	const [currentStep, setCurrentStep] = useState<number>(0);
+	const [loading, setLoading] = useState<boolean>(false);
+	const [errors, setErrors] = useState<Record<string, string>>({});
+
+	const db = useDB();
+
+	const validateStep = useCallback(
+		(step: number): boolean => {
+			const newErrors: Record<string, string> = {};
+
+			if (step === 0) {
+				if (!formData.firstName.trim())
+					newErrors.firstName = "Please enter your first name";
+				if (!formData.lastName.trim())
+					newErrors.lastName = "Please enter your last name";
+				if (!formData.email.trim()) {
+					newErrors.email = "Please enter your email address";
+				} else {
+					const emailResult = emailSchema.safeParse(formData.email);
+					if (!emailResult.success) {
+						newErrors.email = emailResult.error.errors[0].message;
+					}
+				}
+			} else if (step === 1) {
+				formData.accounts.forEach((account, index) => {
+					if (!account.name.trim()) {
+						newErrors[`account${index}Name`] = "Please enter an account name";
+					}
+					if (!account.balance.trim()) {
+						newErrors[`account${index}Balance`] =
+							"Please enter your current balance";
+					} else {
+						const balanceResult = balanceSchema.safeParse(account.balance);
+						if (!balanceResult.success) {
+							newErrors[`account${index}Balance`] =
+								balanceResult.error.errors[0].message;
+						}
+					}
+				});
+			}
+
+			setErrors(newErrors);
+			return Object.keys(newErrors).length === 0;
+		},
+		[formData],
+	);
+
+	const handleInputChange = useCallback(
+		(field: keyof FormData | string, value: string, accountIndex?: number) => {
+			setFormData((prev) => {
+				if (typeof accountIndex === "number") {
+					const newAccounts = [...prev.accounts];
+					const [fieldName] = field.split(".");
+					newAccounts[accountIndex] = {
+						...newAccounts[accountIndex],
+						[fieldName]: value,
+					};
+					return { ...prev, accounts: newAccounts };
+				}
+				return { ...prev, [field]: value };
+			});
+
+			// Clear error when user starts typing
+			setErrors((prev) => {
+				const newErrors = { ...prev };
+				const errorKey =
+					typeof accountIndex === "number"
+						? `account${accountIndex}${field}`
+						: field;
+				delete newErrors[errorKey];
+				return newErrors;
+			});
+		},
+		[],
+	);
+
+	useEffect(() => {
+		const keyboardDidShow = Keyboard.addListener("keyboardDidShow", () =>
+			setKeyboardVisible(true),
+		);
+		const keyboardDidHide = Keyboard.addListener("keyboardDidHide", () =>
+			setKeyboardVisible(false),
+		);
+
+		return () => {
+			keyboardDidShow.remove();
+			keyboardDidHide.remove();
+		};
+	}, []);
+
+	const handleNext = useCallback(async () => {
+		if (!validateStep(currentStep)) return;
+
+		if (currentStep < 1) {
+			setCurrentStep((prev) => prev + 1);
+			return;
+		}
+
+		try {
+			setLoading(true);
+
+			// Start a transaction for all database operations
+			await db.transaction(async (tx) => {
+				// Create user first
+				const userResult = await tx
+					.insert(schema.users)
+					.values({
+						username: formData.email,
+						firstName: formData.firstName,
+						lastName: formData.lastName,
+					})
+					.returning();
+
+				const userId = userResult[0].userId;
+
+				// Create accounts
+				for (const account of formData.accounts) {
+					await tx.insert(schema.accounts).values({
+						userId,
+						accountName: account.name.trim(),
+						accountType: account.type,
+						balance: Number.parseFloat(account.balance),
+					});
+				}
+			});
+
+			router.replace("/(stack)");
+		} catch (error) {
+			console.error("Setup error:", error);
+			Alert.alert(
+				"Setup Failed",
+				"There was an error setting up your account. Please try again.",
+			);
+		} finally {
+			setLoading(false);
+		}
+	}, [currentStep, formData, db, validateStep]);
+
+	const renderPersonalInfo = () => (
+		<View style={styles.form}>
+			<Input
+				label="First Name"
+				placeholder="Enter your first name"
+				value={formData.firstName}
+				onChangeText={(value) => handleInputChange("firstName", value)}
+				accessibilityLabel="First name input"
+				accessibilityHint="Enter your first name"
+				error={errors.firstName}
+				returnKeyType="next"
+				blurOnSubmit={false}
+				onSubmitEditing={() => lastNameRef.current?.focus()}
+			/>
+
+			<Input
+				label="Last Name"
+				placeholder="Enter your last name"
+				value={formData.lastName}
+				onChangeText={(value) => handleInputChange("lastName", value)}
+				accessibilityLabel="Last name input"
+				accessibilityHint="Enter your last name"
+				error={errors.lastName}
+				returnKeyType="next"
+				blurOnSubmit={false}
+				inputRef={lastNameRef}
+				onSubmitEditing={() => emailRef.current?.focus()}
+			/>
+
+			<Input
+				label="Email Address"
+				placeholder="Enter your email address"
+				keyboardType="email-address"
+				autoCapitalize="none"
+				value={formData.email}
+				onChangeText={(value) => handleInputChange("email", value)}
+				accessibilityLabel="Email input"
+				accessibilityHint="Enter your email address"
+				error={errors.email}
+				returnKeyType="done"
+				inputRef={emailRef}
+				onSubmitEditing={handleNext}
+			/>
+		</View>
+	);
+
+	const renderAccountSetup = () => (
+		<View style={styles.form}>
+			{formData.accounts.map((account, index) => (
+				<Animated.View
+					// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
+					key={index}
+					entering={SlideInRight.delay(index * 100)}
+					style={styles.accountForm}
+				>
+					<View style={styles.accountHeader}>
+						<MaterialCommunityIcons
+							name={ACCOUNT_TYPES[account.type].icon}
+							size={24}
+							color={ACCOUNT_TYPES[account.type].color}
+						/>
+						<Text style={styles.accountLabel}>
+							{ACCOUNT_TYPES[account.type].name}
+						</Text>
+					</View>
+
+					<Input
+						label="Account Name"
+						placeholder="Enter account name"
+						value={account.name}
+						onChangeText={(value) => handleInputChange("name", value, index)}
+						error={errors[`account${index}Name`]}
+						returnKeyType="next"
+					/>
+
+					<View style={styles.accountTypeContainer}>
+						{(Object.keys(ACCOUNT_TYPES) as AccountType[]).map((type) => (
+							<AccountTypeButton
+								key={type}
+								type={type}
+								isSelected={account.type === type}
+								onPress={() => handleInputChange("type", type, index)}
+							/>
+						))}
+					</View>
+
+					<Input
+						label="Current Balance"
+						placeholder="Enter current balance"
+						keyboardType="decimal-pad"
+						value={account.balance}
+						onChangeText={(value) => handleInputChange("balance", value, index)}
+						error={errors[`account${index}Balance`]}
+						returnKeyType="done"
+					/>
+				</Animated.View>
+			))}
+		</View>
+	);
+
+	return (
+		<SafeAreaView style={styles.container}>
+			<ScrollView
+				style={styles.scrollView}
+				keyboardShouldPersistTaps="handled"
+				contentContainerStyle={styles.scrollContent}
+			>
+				<Animated.View
+					entering={FadeInDown}
+					style={[styles.content, isNarrowScreen && styles.contentNarrow]}
+				>
+					<View style={styles.header}>
+						<Text
+							style={styles.title}
+							accessibilityRole="header"
+							accessibilityLabel={
+								currentStep === 0 ? "Welcome to Fizcal" : "Set Up Your Accounts"
+							}
+						>
+							{currentStep === 0 ? "Welcome to Fizcal" : "Set Up Your Accounts"}
+						</Text>
+						<Text
+							style={styles.subtitle}
+							accessibilityRole="text"
+							accessibilityLabel={
+								currentStep === 0
+									? "Let's get to know you better"
+									: "Add your main accounts to get started"
+							}
+						>
+							{currentStep === 0
+								? "Let's get to know you better"
+								: "Add your main accounts to get started"}
+						</Text>
+					</View>
+
+					<Animated.View entering={FadeInRight} style={styles.formContainer}>
+						{currentStep === 0 ? renderPersonalInfo() : renderAccountSetup()}
+					</Animated.View>
+
+					<View
+						style={[
+							styles.buttonContainer,
+							keyboardVisible && styles.buttonContainerKeyboard,
+						]}
+					>
+						<Pressable
+							onPress={handleNext}
+							disabled={loading}
+							style={({ pressed }) => [
+								styles.button,
+								pressed && styles.buttonPressed,
+								loading && styles.buttonDisabled,
+							]}
+							accessibilityRole="button"
+							accessibilityState={{ disabled: loading }}
+							accessibilityLabel={
+								loading
+									? "Setting up your account"
+									: currentStep === 0
+										? "Next step"
+										: "Complete setup"
+							}
+						>
+							<Text style={styles.buttonText}>
+								{loading
+									? "Setting up..."
+									: currentStep === 0
+										? "Next"
+										: "Complete Setup"}
+							</Text>
+						</Pressable>
+					</View>
+				</Animated.View>
+			</ScrollView>
+		</SafeAreaView>
+	);
+};
+
+const SetupScreen: React.FC = () => {
+	return (
+		<ErrorBoundary>
+			<SetupScreenContent />
+		</ErrorBoundary>
+	);
+};
+
 const styles = StyleSheet.create({
+	scrollView: {
+		flex: 1,
+	},
+	scrollContent: {
+		flexGrow: 1,
+		justifyContent: "flex-end",
+	},
 	container: {
-    flex: 1,
-    backgroundColor: "#000",
+		flex: 1,
+		backgroundColor: "#000000",
 	},
 	content: {
 		flex: 1,
 		padding: 24,
-		justifyContent: "center",
+		paddingTop: 120, // Push content down for better reachability
+	},
+	contentNarrow: {
+		padding: 16,
+		paddingTop: 100,
+	},
+	header: {
+		marginBottom: 40,
 	},
 	title: {
 		fontSize: 32,
-		fontWeight: "bold",
+		fontWeight: "700",
 		color: "#FFFFFF",
 		marginBottom: 12,
+		letterSpacing: -0.5,
 	},
 	subtitle: {
 		fontSize: 16,
-		color: "#94A3B8",
-		marginBottom: 32,
+		color: "#9CA3AF",
 		lineHeight: 24,
 	},
-	input: {
-		backgroundColor: "rgba(148, 163, 184, 0.1)",
-		borderRadius: 12,
-		padding: 16,
-		marginBottom: 16,
-		color: "#FFFFFF",
-		fontSize: 16,
+	form: {
+		gap: 24,
 	},
-	helperText: {
-		color: "#64748B",
+	formContainer: {
+		flex: 1,
+	},
+	inputGroup: {
+		gap: 8,
+	},
+	label: {
 		fontSize: 14,
-		textAlign: "center",
+		fontWeight: "500",
+		color: "#E5E7EB",
+		letterSpacing: 0.1,
+	},
+	input: {
+		height: 52,
+		borderWidth: 1,
+		borderColor: "#374151",
+		borderRadius: 12,
+		paddingHorizontal: 16,
+		fontSize: 16,
+		color: "#FFFFFF",
+		backgroundColor: "#1F2937",
+	},
+	inputError: {
+		borderColor: "#EF4444",
+		backgroundColor: "#991B1B",
+	},
+	errorText: {
+		fontSize: 12,
+		color: "#EF4444",
+		marginTop: 4,
+	},
+	accountForm: {
+		gap: 24,
+		marginBottom: 32,
+		backgroundColor: "#1A1A1A",
+		padding: 24,
+		borderRadius: 16,
+		borderWidth: 1,
+		borderColor: "#333333",
+	},
+	accountLabel: {
+		fontSize: 18,
+		fontWeight: "600",
+		color: "#FFFFFF",
+		flex: 1,
+	},
+	accountTypeContainer: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: 12,
 		marginTop: 8,
-		marginBottom: 24,
+	},
+	accountTypeButton: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingVertical: 12,
+		paddingHorizontal: 16,
+		borderRadius: 12,
+		borderWidth: 1,
+		borderColor: "#333333",
+		backgroundColor: "#1A1A1A",
+		gap: 10,
+		flex: 1,
+		minWidth: 150,
+	},
+	accountTypeText: {
+		fontSize: 14,
+		color: "#FFFFFF",
+		flex: 1,
 	},
 	button: {
-		paddingVertical: 16,
-		borderRadius: 12,
-		elevation: 2,
+		overflow: "hidden",
+		borderRadius: 16,
+		paddingVertical: 18,
+		paddingHorizontal: 28,
+		alignItems: "center",
+		backgroundColor: "#333333",
+	},
+	buttonPressed: {
+		backgroundColor: "#404040",
+	},
+	buttonDisabled: {
+		backgroundColor: "#262626",
+		opacity: 0.5,
 	},
 	buttonText: {
 		color: "#FFFFFF",
-		fontSize: 18,
-		fontWeight: "600",
-		textAlign: "center",
+		fontSize: 16,
+		fontWeight: "500",
+		letterSpacing: 0.5,
+	},
+	buttonContainer: {
+		paddingTop: 32,
+		paddingBottom: 24,
+	},
+	buttonContainerKeyboard: {
+		paddingBottom: 16,
+	},
+	accountHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 14,
 	},
 });
+
+export default SetupScreen;

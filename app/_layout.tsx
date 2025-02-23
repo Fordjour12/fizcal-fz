@@ -15,6 +15,7 @@ import { drizzle } from "drizzle-orm/expo-sqlite";
 import { SQLiteProvider, openDatabaseSync } from "expo-sqlite";
 import { ActivityIndicator } from "react-native";
 
+import { AuthProvider } from "@/components/auth-provider";
 import migrations from "@/drizzle/migrations";
 import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
 import { useDrizzleStudio } from "expo-drizzle-studio-plugin";
@@ -87,17 +88,19 @@ function RootLayoutNav() {
 				options={{ enableChangeListener: true }}
 				useSuspense={true}
 			>
-				<ThemeProvider
-					value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-				>
-					<Stack>
-						<Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="setup" options={{ headerShown: false }} />
-						<Stack.Screen name="(stack)" options={{ headerShown: false }} />
-						<Stack.Screen name="modal" options={{ presentation: "modal" }} />
-					</Stack>
-				</ThemeProvider>
-				<StatusBar style={colorScheme === "dark" ? "light" : "auto"} />
+				<AuthProvider>
+					<ThemeProvider
+						value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+					>
+						<Stack>
+							<Stack.Screen name="index" options={{ headerShown: false }} />
+							<Stack.Screen name="setup" options={{ headerShown: false }} />
+							<Stack.Screen name="(stack)" options={{ headerShown: false }} />
+							<Stack.Screen name="modal" options={{ presentation: "modal" }} />
+						</Stack>
+					</ThemeProvider>
+					<StatusBar style={colorScheme === "dark" ? "light" : "auto"} />
+				</AuthProvider>
 			</SQLiteProvider>
 		</Suspense>
 	);
