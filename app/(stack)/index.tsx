@@ -114,7 +114,7 @@ export default function DashboardScreen() {
 						<View style={styles.headerRight}>
 							<Pressable
 								style={styles.iconButton}
-								onPress={() => router.push("/settings")}
+								onPress={() => router.push("/(stack)/settings")}
 							>
 								<Ionicons name="settings-outline" size={24} color="#fff" />
 							</Pressable>
@@ -148,20 +148,41 @@ export default function DashboardScreen() {
 
 							<Animated.View style={[styles.accountsDropdown, dropdownStyle]}>
 								{isLoading ? (
-									<Text style={styles.loadingText}>Loading accounts...</Text>
+									<View style={styles.loadingContainer}>
+										<Text style={styles.loadingText}>Loading accounts...</Text>
+									</View>
 								) : error ? (
-									<Text style={styles.errorText}>{error.message}</Text>
+									<View style={styles.errorContainer}>
+										<Ionicons name="alert-circle-outline" size={24} color="#ff4444" />
+										<Text style={styles.errorText}>{error.message}</Text>
+										<Pressable style={styles.retryButton} onPress={refresh}>
+											<Text style={styles.retryText}>Retry</Text>
+										</Pressable>
+									</View>
 								) : accounts.length === 0 ? (
-									<Text style={styles.emptyText}>No accounts found</Text>
+									<View style={styles.emptyContainer}>
+										<Ionicons name="wallet-outline" size={24} color="#999" />
+										<Text style={styles.emptyText}>No accounts found</Text>
+										<Pressable 
+											style={styles.addAccountButton}
+											onPress={() => router.push("/(stack)/accounts/new")}
+										>
+											<Text style={styles.addAccountText}>Add Account</Text>
+										</Pressable>
+									</View>
 								) : (
 									accounts.map((account) => (
-										<AccountItem
+										<Pressable 
 											key={account.accountId}
-											title={account.accountName}
-											type={account.accountType}
-											amount={account.balance}
-											color={account.color || "#757575"}
-										/>
+											onPress={() => router.push(`/(stack)/accounts/${account.accountId}`)}
+										>
+											<AccountItem
+												title={account.accountName}
+												type={account.accountType}
+												amount={account.balance}
+												color={account.color || "#757575"}
+											/>
+										</Pressable>
 									))
 								)}
 							</Animated.View>
@@ -170,7 +191,7 @@ export default function DashboardScreen() {
 				</View>
 
 				<View style={styles.budgetSection}>
-					<Pressable onPress={() => router.push("/budgets")}>
+					<Pressable onPress={() => router.push("/(stack)/budgets")}>
 						<BudgetCard
 							amountLeft={14500.0}
 							amountSpent={12450.3}
@@ -231,23 +252,62 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+	loadingContainer: {
+		padding: 16,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
 	loadingText: {
 		color: "#fff",
 		textAlign: "center",
-		padding: 16,
 		fontSize: 16,
+		marginTop: 8,
+	},
+	errorContainer: {
+		padding: 16,
+		alignItems: 'center',
+		justifyContent: 'center',
 	},
 	errorText: {
 		color: "#ff4444",
 		textAlign: "center",
-		padding: 16,
 		fontSize: 16,
+		marginTop: 8,
+	},
+	retryButton: {
+		marginTop: 12,
+		paddingVertical: 8,
+		paddingHorizontal: 16,
+		backgroundColor: '#2DC653',
+		borderRadius: 8,
+	},
+	retryText: {
+		color: '#fff',
+		fontSize: 14,
+		fontWeight: '600',
+	},
+	emptyContainer: {
+		padding: 16,
+		alignItems: 'center',
+		justifyContent: 'center',
 	},
 	emptyText: {
 		color: "#999",
 		textAlign: "center",
-		padding: 16,
 		fontSize: 16,
+		marginTop: 8,
+	},
+	addAccountButton: {
+		marginTop: 12,
+		paddingVertical: 8,
+		paddingHorizontal: 16,
+		backgroundColor: '#2DC653',
+		borderRadius: 8,
+	},
+	addAccountText: {
+		color: '#fff',
+		fontSize: 14,
+		fontWeight: '600',
 	},
 	balanceHeader: {
 		flexDirection: "row",

@@ -32,13 +32,13 @@ export function useAccounts() {
   const db = useDB();
   const { user } = useAuth();
 
-  console.log({...user})
-
   const fetchAccounts = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setError(new Error('No user logged in'));
+      setIsLoading(false);
+      return;
+    }
 
-
-    
     try {
       setIsLoading(true);
       const result = await db.select()
