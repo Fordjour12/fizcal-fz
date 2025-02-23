@@ -2,8 +2,8 @@ import { formatCurrency } from "@/utils/currency";
 import { useLocalSearchParams } from "expo-router";
 import { useAccounts } from "@/hooks/useAccounts";
 import { Ionicons } from "@expo/vector-icons";
-import { Stack } from "expo-router";
-import { useState } from "react";
+import { Stack, router } from "expo-router";
+import { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,36 +11,141 @@ import {
   ScrollView,
   Pressable,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { LineChart } from "react-native-chart-kit";
 
-// Mock data for the chart
-const chartData = {
-  labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-  datasets: [
-    {
-      data: [20000, 45000, 28000, 80000, 99000, 43000],
-    },
-  ],
-};
+const PERIODS = [
+  { label: '1W', title: '1 Week' },
+  { label: '1M', title: '1 Month' },
+  { label: '3M', title: '3 Months' },
+  { label: '1Y', title: '1 Year' },
+] as const;
+
+type Period = typeof PERIODS[number]['label'];
+
+// Mock data generator based on period
+function generateChartData(period: Period) {
+  const now = new Date();
+  const data: { labels: string[]; datasets: { data: number[] }[] } = {
+    labels: [],
+    datasets: [{ data: [] }],
+  };
+
+  switch (period) {
+    case '1W':
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        data.labels.push(date.toLocaleDateString('en-US', { weekday: 'short' }));
+        data.datasets[0].data.push(Math.random() * 100000);
+      }
+      break;
+    case '1M':
+      for (let i = 29; i >= 0; i -= 5) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        data.labels.push(date.toLocaleDateString('en-US', { day: '2-digit' }));
+        data.datasets[0].data.push(Math.random() * 100000);
+      }
+      break;
+    case '3M':
+      for (let i = 2; i >= 0; i--) {
+        const date = new Date(now);
+        date.setMonth(date.getMonth() - i);
+        data.labels.push(date.toLocaleDateString('en-US', { month: 'short' }));
+        data.datasets[0].data.push(Math.random() * 100000);
+      }
+      break;
+    case '1Y':
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date(now);
+        date.setMonth(date.getMonth() - i);
+        data.labels.push(date.toLocaleDateString('en-US', { month: 'short' }));
+        data.datasets[0].data.push(Math.random() * 100000);
+      }
+      break;
+  }
+
+  return data;
+}
 
 export default function AccountDetailsScreen() {
   const { id } = useLocalSearchParams();
-  const { accounts } = useAccounts();
-  const [selectedPeriod, setSelectedPeriod] = useState<'1W' | '1M' | '3M' | '1Y'>('1M');
+  const { accounts, isLoading, error } = useAccounts();
+  const [selectedPeriod, setSelectedPeriod] = useState<Period>('1M');
   
-  const account = accounts.find((a) => a.accountId === Number(id));
-  
-  if (!account) return null;
+  const account = useMemo(() => 
+    accounts.find((a) => a.accountId === Number(id)),
+    [accounts, id]
+  );
 
-  const periods = [
-    { label: '1W', title: '1 Week' },
-    { label: '1M', title: '1 Month' },
-    { label: '3M', title: '3 Months' },
-    { label: '1Y', title: '1 Year' },
-  ];
+  const chartData = useMemo(() => 
+    generateChartData(selectedPeriod),
+    [selectedPeriod]
+  );
+  
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen
+          options={{
+            headerStyle: { backgroundColor: '#000' },
+            headerTintColor: '#fff',
+            headerShadowVisible: false,
+          }}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2EC654" />
+          <Text style={styles.loadingText}>Loading account details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen
+          options={{
+            headerStyle: { backgroundColor: '#000' },
+            headerTintColor: '#fff',
+            headerShadowVisible: false,
+          }}
+        />
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color="#ff4444" />
+          <Text style={styles.errorText}>{error.message}</Text>
+          <Pressable style={styles.retryButton} onPress={() => router.back()}>
+            <Text style={styles.retryText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  
+  if (!account) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen
+          options={{
+            headerStyle: { backgroundColor: '#000' },
+            headerTintColor: '#fff',
+            headerShadowVisible: false,
+          }}
+        />
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color="#ff4444" />
+          <Text style={styles.errorText}>Account not found</Text>
+          <Pressable style={styles.retryButton} onPress={() => router.back()}>
+            <Text style={styles.retryText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -53,7 +158,7 @@ export default function AccountDetailsScreen() {
         }}
       />
       
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <Animated.View 
           entering={FadeInDown.delay(200)}
           style={styles.balanceCard}
@@ -80,14 +185,14 @@ export default function AccountDetailsScreen() {
 
         <View style={styles.chartSection}>
           <View style={styles.periodSelector}>
-            {periods.map((period) => (
+            {PERIODS.map((period) => (
               <Pressable
                 key={period.label}
                 style={[
                   styles.periodButton,
                   selectedPeriod === period.label && styles.periodButtonActive,
                 ]}
-                onPress={() => setSelectedPeriod(period.label as typeof selectedPeriod)}
+                onPress={() => setSelectedPeriod(period.label)}
               >
                 <Text style={[
                   styles.periodButtonText,
@@ -134,7 +239,10 @@ export default function AccountDetailsScreen() {
             <Ionicons name="arrow-forward-circle-outline" size={24} color="#2EC654" />
             <Text style={styles.actionButtonText}>Transfer</Text>
           </Pressable>
-          <Pressable style={styles.actionButton}>
+          <Pressable 
+            style={styles.actionButton}
+            onPress={() => router.push(`/(stack)/accounts/${account.accountId}/settings`)}
+          >
             <Ionicons name="settings-outline" size={24} color="#2EC654" />
             <Text style={styles.actionButtonText}>Settings</Text>
           </Pressable>
@@ -148,6 +256,40 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    padding: 32,
+  },
+  errorText: {
+    color: '#ff4444',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#2EC654',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   scrollView: {
     flex: 1,

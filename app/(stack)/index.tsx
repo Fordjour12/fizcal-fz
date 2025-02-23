@@ -20,6 +20,7 @@ import Animated, {
 	withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+import React from "react";
 
 interface AccountItemProps {
 	title: string;
@@ -41,6 +42,21 @@ function AccountItem({ title, type, amount, color }: AccountItemProps) {
 			<Text style={styles.accountAmount}>
 				{formatCurrency(amount)}
 			</Text>
+		</Animated.View>
+	);
+}
+
+function AddAccountCard() {
+	return (
+		<Animated.View entering={FadeInDown.delay(300)} style={styles.accountItem}>
+			<View style={styles.accountLeft}>
+				<View style={[styles.accountDot, { backgroundColor: '#2EC654' }]} />
+				<View>
+					<Text style={styles.accountTitle}>Add New Account</Text>
+					<Text style={styles.accountType}>Get started with a new account</Text>
+				</View>
+			</View>
+			<Ionicons name="add-circle-outline" size={24} color="#2EC654" />
 		</Animated.View>
 	);
 }
@@ -159,6 +175,16 @@ export default function DashboardScreen() {
 									{growthPercentage}% the last year
 								</Text>
 							</View>
+							<View style={styles.accountsHeader}>
+								<Text style={styles.accountsTitle}>Accounts</Text>
+								<Pressable
+									style={styles.viewAllButton}
+									onPress={() => router.push("/accounts")}
+								>
+									<Text style={styles.viewAllText}>View All</Text>
+									<Ionicons name="chevron-forward" size={16} color="#2DC653" />
+								</Pressable>
+							</View>
 							{isLoading ? (
 								<View style={styles.loadingContainer}>
 									<Text style={styles.loadingText}>Loading accounts...</Text>
@@ -185,19 +211,26 @@ export default function DashboardScreen() {
 											</Pressable>
 										</View>
 									) : (
-										accountsList.map((account) => (
+										<>
+											{accountsList.map((account) => (
+												<Pressable 
+													key={account.accountId}
+													onPress={() => router.push(`/(stack)/accounts/${account.accountId}`)}
+												>
+													<AccountItem
+														title={account.accountName}
+														type={account.accountType}
+														amount={account.balance}
+														color={account.color || "#757575"}
+													/>
+												</Pressable>
+											))}
 											<Pressable 
-												key={account.accountId}
-												onPress={() => router.push(`/(stack)/accounts/${account.accountId}`)}
+												onPress={() => router.push("/(stack)/accounts/new")}
 											>
-												<AccountItem
-													title={account.accountName}
-													type={account.accountType}
-													amount={account.balance}
-													color={account.color || "#757575"}
-												/>
+												<AddAccountCard />
 											</Pressable>
-										))
+										</>
 									)}
 								</Animated.View>
 							)}
@@ -496,5 +529,17 @@ const styles = StyleSheet.create({
 		fontSize: 17,
 		fontWeight: "600",
 		color: "#fff",
+	},
+	accountsHeader: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		marginTop: 24,
+		marginBottom: 16,
+	},
+	accountsTitle: {
+		fontSize: 18,
+		fontWeight: '600',
+		color: '#fff',
 	},
 });
