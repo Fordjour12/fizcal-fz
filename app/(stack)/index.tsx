@@ -11,7 +11,7 @@ import {
 import { useAccounts } from "@/hooks/useAccounts";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, {
 	FadeInDown,
@@ -74,31 +74,42 @@ export default function DashboardScreen() {
 	const growth = 0;
 	const growthPercentage = 0;
 
-	const handleAddTransaction = (newTransaction: NewTransaction) => {
-		const transaction: Transaction = {
-			id: Date.now().toString(),
-			type: newTransaction.type === "expense" ? "Expense" : "Income",
-			amount: newTransaction.amount,
-			category:
-				TRANSACTION_CATEGORIES.find((cat) => cat.id === newTransaction.category)
-					?.title || "",
-			paymentMethod: newTransaction.paymentMethod,
-			date: new Date()
-				.toLocaleDateString("en-US", {
-					day: "2-digit",
-					month: "short",
-					year: "numeric",
-				})
-				.toUpperCase(),
-			icon:
-				TRANSACTION_CATEGORIES.find((cat) => cat.id === newTransaction.category)
-					?.icon || "cash-outline",
-			iconColor: newTransaction.amount < 0 ? "#E85D75" : "#2DC653",
-			iconBackground: newTransaction.amount < 0 ? "#4A2328" : "#1B4332",
-		};
+	// Memoize the transaction handlers
+	const handleTransactionPress = useCallback(() => {
+		router.push("/(stack)/transactions");
+	}, []);
 
-		setTransactions([transaction, ...transactions.slice(0, 4)]);
-	};
+	const handleAddTransaction = useCallback((newTransaction: NewTransaction) => {
+		try {
+			const transaction: Transaction = {
+				id: Date.now().toString(),
+				type: newTransaction.type === "expense" ? "Expense" : "Income",
+				amount: newTransaction.amount,
+				category:
+					TRANSACTION_CATEGORIES.find((cat) => cat.id === newTransaction.category)
+						?.title || "",
+				paymentMethod: newTransaction.paymentMethod,
+				date: new Date()
+					.toLocaleDateString("en-US", {
+						day: "2-digit",
+						month: "short",
+						year: "numeric",
+					})
+					.toUpperCase(),
+				icon:
+					TRANSACTION_CATEGORIES.find((cat) => cat.id === newTransaction.category)
+						?.icon || "cash-outline",
+				iconColor: newTransaction.amount < 0 ? "#E85D75" : "#2DC653",
+				iconBackground: newTransaction.amount < 0 ? "#4A2328" : "#1B4332",
+			};
+
+			setTransactions((prev) => [transaction, ...prev.slice(0, 4)]);
+			setIsAddModalVisible(false); // Close modal after successful add
+		} catch (error) {
+			console.error('Error adding transaction:', error);
+			// Optionally show error to user
+		}
+	}, []);
 
 	return (
 		<SafeAreaView style={styles.container}>
@@ -226,7 +237,7 @@ export default function DashboardScreen() {
 						<Text style={styles.sectionTitle}>Recent Transactions</Text>
 						<Pressable
 							style={styles.viewAllButton}
-							onPress={() => router.push("/(stack)/transactions")}
+							onPress={handleTransactionPress}
 						>
 							<Text style={styles.viewAllText}>View All</Text>
 							<Ionicons name="chevron-forward" size={16} color="#2DC653" />
@@ -234,7 +245,7 @@ export default function DashboardScreen() {
 					</View>
 					<TransactionsList
 						transactions={transactions}
-						onTransactionPress={() => router.push("/(stack)/transactions")}
+						onTransactionPress={handleTransactionPress}
 					/>
 				</View>
 
