@@ -10,7 +10,8 @@ import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("Users", {
   userId: integer("user_id").primaryKey({ autoIncrement: true }),
-  username: text("username").notNull().unique(),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
   firstName: text("first_name"),
   lastName: text("last_name"),
   createdAt: integer("created_at", { mode: "timestamp" }).default(

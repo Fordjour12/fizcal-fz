@@ -1,20 +1,22 @@
+import { SignInCredentials, User, signInSchema, userSchema } from "@/types/auth";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { createContext, useContext } from "react";
-
-interface User {
-  id: string;
-  email?: string;
-  firstName?: string;
-  lastName?: string;
-}
+import * as SecureStore from "expo-secure-store";
+import useDB from "./useDB";
+import { z } from "zod";
 
 interface AuthContextType {
   user: User | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (credentials: SignInCredentials) => Promise<void>;
   signOut: () => Promise<void>;
   isLoading: boolean;
+  error: Error | null;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+const USER_STORAGE_KEY = "fizcal_user";
 
 export function useAuth() {
   const context = useContext(AuthContext);

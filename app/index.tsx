@@ -1,6 +1,7 @@
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link, Stack } from "expo-router";
+import { Link, Stack, Redirect } from "expo-router";
+import { useAuth } from "../hooks/useAuth";
 import { useMemo } from "react";
 import {
 	Pressable,
@@ -90,6 +91,12 @@ const GridPattern = () => {
 };
 
 export default function LandingScreen() {
+	const { user } = useAuth();
+
+	if (user) {
+		return <Redirect href="/(stack)" />
+	}
+
 	return (
 		<View style={styles.background}>
 			<LinearGradient

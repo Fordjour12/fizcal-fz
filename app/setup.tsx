@@ -1,6 +1,8 @@
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import * as schema from "@/db/schema";
+import { useAuth } from "@/hooks/useAuth";
 import useDB from "@/hooks/useDB";
+import { signInSchema } from "@/types/auth";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -24,16 +26,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { z } from "zod";
 
 // Types and constants
-type AccountType =
-	| "checking"
-	| "savings"
-	| "credit_card"
-	| "cash"
-	| "investment";
+type AccountType = "checking" | "savings" | "credit_card" | "cash" | "investment";
 
 const ACCOUNT_TYPES: Record<
 	AccountType,
-	{ name: string; icon: string; color: string }
+	{ name: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; color: string }
 > = {
 	checking: { name: "Checking", icon: "bank", color: "#6366F1" },
 	savings: { name: "Savings", icon: "piggy-bank", color: "#8B5CF6" },
@@ -46,6 +43,7 @@ interface FormData {
 	firstName: string;
 	lastName: string;
 	email: string;
+	password: string;
 	accounts: Array<{
 		name: string;
 		type: AccountType;
@@ -57,6 +55,7 @@ const INITIAL_FORM_DATA: FormData = {
 	firstName: "",
 	lastName: "",
 	email: "",
+	password: "",
 	accounts: [
 		{ name: "", type: "checking", balance: "" },
 		{ name: "", type: "savings", balance: "" },
@@ -64,7 +63,6 @@ const INITIAL_FORM_DATA: FormData = {
 };
 
 // Validation schemas
-const emailSchema = z.string().email("Please enter a valid email address");
 const balanceSchema = z.string().refine((val) => {
 	const num = Number.parseFloat(val);
 	return !Number.isNaN(num) && num >= 0;
@@ -137,6 +135,7 @@ const SetupScreenContent: React.FC = () => {
 	const [keyboardVisible, setKeyboardVisible] = useState(false);
 	const lastNameRef = useRef<TextInput>(null);
 	const emailRef = useRef<TextInput>(null);
+	const passwordRef = useRef<TextInput>(null);
 	const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
 	const [currentStep, setCurrentStep] = useState<number>(0);
 	const [loading, setLoading] = useState<boolean>(false);
@@ -155,10 +154,22 @@ const SetupScreenContent: React.FC = () => {
 					newErrors.lastName = "Please enter your last name";
 				if (!formData.email.trim()) {
 					newErrors.email = "Please enter your email address";
+				} else if (!formData.password.trim()) {
+					newErrors.password = "Please enter your password";
 				} else {
-					const emailResult = emailSchema.safeParse(formData.email);
-					if (!emailResult.success) {
-						newErrors.email = emailResult.error.errors[0].message;
+					const signInResult = signInSchema.safeParse({
+						email: formData.email,
+						password: formData.password,
+					});
+					if (!signInResult.success) {
+						const emailError = signInResult.error.errors.find(e => e.path[0] === "email");
+						if (emailError) {
+							newErrors.email = emailError.message;
+						}
+						const passwordError = signInResult.error.errors.find(e => e.path[0] === "password");
+						if (passwordError) {
+							newErrors.password = passwordError.message;
+						}
 					}
 				}
 			} else if (step === 1) {
@@ -245,7 +256,8 @@ const SetupScreenContent: React.FC = () => {
 				const userResult = await tx
 					.insert(schema.users)
 					.values({
-						username: formData.email,
+						email: formData.email,
+						password: formData.password, // TODO: Add password hashing
 						firstName: formData.firstName,
 						lastName: formData.lastName,
 					})
@@ -262,6 +274,13 @@ const SetupScreenContent: React.FC = () => {
 						balance: Number.parseFloat(account.balance),
 					});
 				}
+
+				// Sign in the user
+				const { signIn } = useAuth();
+				await signIn({ 
+					email: formData.email, 
+					password: formData.password 
+				});
 			});
 
 			router.replace("/(stack)");
@@ -301,8 +320,39 @@ const SetupScreenContent: React.FC = () => {
 				error={errors.lastName}
 				returnKeyType="next"
 				blurOnSubmit={false}
-				inputRef={lastNameRef}
 				onSubmitEditing={() => emailRef.current?.focus()}
+			/>
+
+			<Input
+				label="Email"
+				placeholder="Enter your email"
+				value={formData.email}
+				onChangeText={(value) => handleInputChange("email", value)}
+				accessibilityLabel="Email input"
+				accessibilityHint="Enter your email address"
+				error={errors.email}
+				keyboardType="email-address"
+				autoCapitalize="none"
+				autoComplete="email"
+				returnKeyType="next"
+				blurOnSubmit={false}
+				onSubmitEditing={() => passwordRef.current?.focus()}
+			/>
+
+			<Input
+				label="Password"
+				placeholder="Enter your password"
+				value={formData.password}
+				onChangeText={(value) => handleInputChange("password", value)}
+				accessibilityLabel="Password input"
+				accessibilityHint="Enter your password"
+				error={errors.password}
+				secureTextEntry
+				autoCapitalize="none"
+				autoComplete="password-new"
+				returnKeyType="done"
+				inputRef={passwordRef}
+				blurOnSubmit={true}
 			/>
 
 			<Input

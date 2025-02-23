@@ -7,6 +7,7 @@ import {
 	type Transaction,
 	TransactionsList,
 } from "@/components/TransactionsList";
+import { useAccounts } from "@/hooks/useAccounts";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
 import { useState } from "react";
@@ -46,6 +47,7 @@ function AccountItem({ title, type, amount, color }: AccountItemProps) {
 export default function DashboardScreen() {
 	const [isAddModalVisible, setIsAddModalVisible] = useState(false);
 	const [isAccountsExpanded, setIsAccountsExpanded] = useState(false);
+	const { accounts, isLoading, totalBalance, error, refresh } = useAccounts();
 
 	const chevronStyle = useAnimatedStyle(() => ({
 		transform: [
@@ -59,12 +61,14 @@ export default function DashboardScreen() {
 		maxHeight: withSpring(isAccountsExpanded ? 500 : 0),
 		opacity: withTiming(isAccountsExpanded ? 1 : 0, { duration: 200 }),
 	}));
+
 	const [transactions, setTransactions] = useState<Transaction[]>(
 		TODAY_TRANSACTIONS.slice(0, 5),
 	);
-	const totalBalance = 36837.15;
-	const growth = 3898.61;
-	const growthPercentage = 13.67;
+
+	// Calculate month-over-month growth (this should be replaced with actual calculations later)
+	const growth = 0;
+	const growthPercentage = 0;
 
 	const handleAddTransaction = (newTransaction: NewTransaction) => {
 		const transaction: Transaction = {
@@ -147,24 +151,23 @@ export default function DashboardScreen() {
 							</View>
 
 							<Animated.View style={[styles.accountsDropdown, dropdownStyle]}>
-								<AccountItem
-									title="Checking Account"
-									type="Cash"
-									amount={14565.15}
-									color="#007AFF"
-								/>
-								<AccountItem
-									title="Savings Account"
-									type="Investments"
-									amount={6819.15}
-									color="#34C759"
-								/>
-								<AccountItem
-									title="ETFs"
-									type="Investments"
-									amount={15452.85}
-									color="#FF3B30"
-								/>
+								{isLoading ? (
+									<Text style={styles.loadingText}>Loading accounts...</Text>
+								) : error ? (
+									<Text style={styles.errorText}>{error.message}</Text>
+								) : accounts.length === 0 ? (
+									<Text style={styles.emptyText}>No accounts found</Text>
+								) : (
+									accounts.map((account) => (
+										<AccountItem
+											key={account.accountId}
+											title={account.accountName}
+											type={account.accountType}
+											amount={account.balance}
+											color={account.color || "#757575"}
+										/>
+									))
+								)}
 							</Animated.View>
 						</Animated.View>
 					</Pressable>
@@ -232,6 +235,24 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+	loadingText: {
+		color: "#fff",
+		textAlign: "center",
+		padding: 16,
+		fontSize: 16,
+	},
+	errorText: {
+		color: "#ff4444",
+		textAlign: "center",
+		padding: 16,
+		fontSize: 16,
+	},
+	emptyText: {
+		color: "#999",
+		textAlign: "center",
+		padding: 16,
+		fontSize: 16,
+	},
 	balanceHeader: {
 		flexDirection: "row",
 		justifyContent: "space-between",
