@@ -1,6 +1,7 @@
 import { AddRecordModal } from "@/components/AddRecordModal";
 import { BudgetCard } from "@/components/BudgetCard";
 import { formatCurrency } from "@/utils/currency";
+import { QuickNav } from "@/components/QuickNav";
 import {
 	type NewTransaction,
 	TRANSACTION_CATEGORIES,
@@ -184,6 +185,9 @@ export default function DashboardScreen() {
 							</Pressable>
 						</View>
 					</View>
+
+					{/* Quick Navigation */}
+					<QuickNav />
 
 					{/* Balance and Accounts Section */}
 					<Pressable onPress={() => setIsAccountsExpanded(!isAccountsExpanded)}>
