@@ -88,6 +88,40 @@ export function useAccounts() {
     fetchAccounts();
   }, [fetchAccounts]);
 
+  const updateBalance = useCallback(async (accountId: number, amount: number) => {
+    try {
+      // Get current account
+      const account = accountsList.find(acc => acc.accountId === accountId);
+      if (!account) throw new Error("Account not found");
+
+      // Calculate new balance
+      const newBalance = account.balance + amount;
+
+      // Update account balance in database
+      await dbRef.current
+        .update(accounts)
+        .set({ balance: newBalance })
+        .where(eq(accounts.accountId, accountId));
+
+      // Update local state with optimistic update
+      setAccountsList(prevAccounts =>
+        prevAccounts.map(acc =>
+          acc.accountId === accountId
+            ? { ...acc, balance: newBalance }
+            : acc
+        )
+      );
+
+      // Update total balance
+      setTotalBalance(prev => prev + amount);
+
+      return newBalance;
+    } catch (err) {
+      console.error('Error updating account balance:', err);
+      throw err instanceof Error ? err : new Error("Failed to update account balance");
+    }
+  }, [accountsList]);
+
   const refresh = useCallback(() => {
     fetchAccounts();
   }, [fetchAccounts]);
@@ -97,6 +131,7 @@ export function useAccounts() {
     isLoading,
     error,
     totalBalance,
-    refresh
+    refresh,
+    updateBalance
   };
 }

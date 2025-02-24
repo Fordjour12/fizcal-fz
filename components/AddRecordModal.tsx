@@ -14,13 +14,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useState, useEffect } from "react";
-import {
-	type TransactionType,
-	type NewTransaction,
-	PAYMENT_METHODS,
-} from "./TransactionsList";
+import type { TransactionType, NewTransaction } from "./TransactionsList";
 import { useBudgets } from "@/hooks/useBudgets";
 import { useCategories } from "@/hooks/useCategories";
+import { useAccounts } from "@/hooks/useAccounts";
 import { formatCurrency } from "@/utils/currency";
 
 interface Styles {
@@ -49,11 +46,12 @@ interface Styles {
 	activeCategoryItem: ViewStyle;
 	categoryText: TextStyle;
 	activeCategoryText: TextStyle;
-	methodGrid: ViewStyle;
-	methodItem: ViewStyle;
-	activeMethodItem: ViewStyle;
-	methodText: TextStyle;
-	activeMethodText: TextStyle;
+	accountGrid: ViewStyle;
+	accountItem: ViewStyle;
+	activeAccountItem: ViewStyle;
+	accountText: TextStyle;
+	activeAccountText: TextStyle;
+	accountIcon: ViewStyle;
 	noteInput: TextStyle;
 	addButton: ViewStyle;
 	addButtonDisabled: ViewStyle;
@@ -80,13 +78,14 @@ export function AddRecordModal({
 	const [type, setType] = useState<TransactionType>("expense");
 	const [amount, setAmount] = useState("");
 	const [categoryId, setCategoryId] = useState<number | null>(null);
-	const [paymentMethod, setPaymentMethod] = useState("");
+	const [accountId, setAccountId] = useState<number | null>(null);
 	const [note, setNote] = useState("");
 	const [selectedBudgetId, setSelectedBudgetId] = useState<number | null>(null);
 
-	// Fetch budgets and categories
+	// Fetch budgets, categories, and accounts
 	const { budgets } = useBudgets();
 	const { categories, isLoading: isCategoriesLoading } = useCategories();
+	const { accounts, isLoading: isAccountsLoading } = useAccounts();
 
 	// Reset form when modal is opened
 	useEffect(() => {
@@ -95,14 +94,14 @@ export function AddRecordModal({
 				setType(initialTransaction.type);
 				setAmount(Math.abs(initialTransaction.amount).toString());
 				setCategoryId(initialTransaction.categoryId);
-				setPaymentMethod(initialTransaction.paymentMethod);
+				setAccountId(initialTransaction.accountId);
 				setNote(initialTransaction.note || "");
 				setSelectedBudgetId(null); // Reset budget selection
 			} else {
 				setType("expense");
 				setAmount("");
 				setCategoryId(null);
-				setPaymentMethod("");
+				setAccountId(null);
 				setNote("");
 				setSelectedBudgetId(null);
 			}
@@ -110,13 +109,13 @@ export function AddRecordModal({
 	}, [visible, initialTransaction]);
 
 	const handleAdd = () => {
-		if (!amount || !categoryId || !paymentMethod) return;
+		if (!amount || !categoryId || !accountId) return;
 
 		const newTransaction: NewTransaction = {
 			type,
 			amount: Number.parseFloat(amount),
 			categoryId,
-			paymentMethod,
+			accountId,
 			note: note || undefined,
 			budgetId: selectedBudgetId,
 		};
@@ -126,32 +125,39 @@ export function AddRecordModal({
 	};
 
 	// Filter categories based on transaction type
-	const filteredCategories = categories.filter(cat => 
-		type === "income" ? cat.isIncome : !cat.isIncome
+	const filteredCategories = categories.filter((cat) =>
+		type === "income" ? cat.isIncome : !cat.isIncome,
 	);
 
 	// Filter budgets based on selected category
-	const availableBudgets = budgets.filter(budget => 
-		categoryId === budget.categoryId
+	const availableBudgets = budgets.filter(
+		(budget) => categoryId === budget.categoryId,
 	);
 
 	// Show budget selection hint
-	const showBudgetHint = categoryId && type === "expense" && availableBudgets.length > 0 && !selectedBudgetId;
+	const showBudgetHint =
+		categoryId &&
+		type === "expense" &&
+		availableBudgets.length > 0 &&
+		!selectedBudgetId;
 
 	if (!visible) return null;
 
 	return (
 		<View style={StyleSheet.absoluteFill}>
-			<Pressable 
-				style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]} 
-				onPress={onClose} 
+			<Pressable
+				style={[
+					StyleSheet.absoluteFill,
+					{ backgroundColor: "rgba(0, 0, 0, 0.5)" },
+				]}
+				onPress={onClose}
 			/>
 			<KeyboardAvoidingView
 				behavior={Platform.OS === "ios" ? "padding" : "height"}
-				style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end' }]}
+				style={[StyleSheet.absoluteFill, { justifyContent: "flex-end" }]}
 			>
-				<Animated.View 
-					entering={FadeIn.duration(200)} 
+				<Animated.View
+					entering={FadeIn.duration(200)}
 					style={styles.modalContainer}
 				>
 					<View style={styles.modalHeader}>
@@ -228,7 +234,8 @@ export function AddRecordModal({
 											key={cat.categoryId}
 											style={[
 												styles.categoryItem,
-												categoryId === cat.categoryId && styles.activeCategoryItem,
+												categoryId === cat.categoryId &&
+													styles.activeCategoryItem,
 											]}
 											onPress={() => {
 												setCategoryId(cat.categoryId);
@@ -238,7 +245,8 @@ export function AddRecordModal({
 											<Text
 												style={[
 													styles.categoryText,
-													categoryId === cat.categoryId && styles.activeCategoryText,
+													categoryId === cat.categoryId &&
+														styles.activeCategoryText,
 												]}
 											>
 												{cat.categoryName}
@@ -256,7 +264,9 @@ export function AddRecordModal({
 								<View style={styles.sectionHeader}>
 									<Text style={styles.sectionTitle}>Budget</Text>
 									{showBudgetHint && (
-										<Text style={styles.budgetHint}>Select a budget to track this expense</Text>
+										<Text style={styles.budgetHint}>
+											Select a budget to track this expense
+										</Text>
 									)}
 								</View>
 								{availableBudgets.length > 0 ? (
@@ -266,59 +276,100 @@ export function AddRecordModal({
 												key={budget.budgetId}
 												style={[
 													styles.budgetItem,
-													selectedBudgetId === budget.budgetId && styles.activeBudgetItem,
+													selectedBudgetId === budget.budgetId &&
+														styles.activeBudgetItem,
 												]}
 												onPress={() => setSelectedBudgetId(budget.budgetId)}
 											>
 												<View style={styles.budgetInfo}>
-													<Text style={styles.budgetName}>{budget.budgetName}</Text>
-													<Text style={[
-														styles.budgetAmount,
-														(budget.budgetAmount - budget.spent) < 0 && styles.overBudgetText
-													]}>
-														{formatCurrency(budget.budgetAmount - budget.spent)} remaining
+													<Text style={styles.budgetName}>
+														{budget.budgetName}
+													</Text>
+													<Text
+														style={[
+															styles.budgetAmount,
+															budget.budgetAmount - budget.spent < 0 &&
+																styles.overBudgetText,
+														]}
+													>
+														{formatCurrency(budget.budgetAmount - budget.spent)}{" "}
+														remaining
 													</Text>
 												</View>
 												{selectedBudgetId === budget.budgetId && (
-													<Ionicons name="checkmark-circle" size={24} color="#2DC653" />
+													<Ionicons
+														name="checkmark-circle"
+														size={24}
+														color="#2DC653"
+													/>
 												)}
 											</Pressable>
 										))}
 									</View>
 								) : (
-									<Text style={styles.noBudgetText}>No budgets found for this category</Text>
+									<Text style={styles.noBudgetText}>
+										No budgets found for this category
+									</Text>
 								)}
 							</View>
 						)}
 
 						<View style={styles.section}>
-							<Text style={styles.sectionTitle}>Payment Method</Text>
-							<View style={styles.methodGrid}>
-								{PAYMENT_METHODS.map((method) => (
-									<Pressable
-										key={method.id}
-										style={[
-											styles.methodItem,
-											paymentMethod === method.id && styles.activeMethodItem,
-										]}
-										onPress={() => setPaymentMethod(method.id)}
-									>
-										<Ionicons
-											name={method.icon}
-											size={20}
-											color={paymentMethod === method.id ? "#2DC653" : "#666"}
-										/>
-										<Text
+							<Text style={styles.sectionTitle}>Account</Text>
+							{isAccountsLoading ? (
+								<Text style={styles.noBudgetText}>Loading accounts...</Text>
+							) : accounts.length > 0 ? (
+								<View style={styles.accountGrid}>
+									{accounts.map((account) => (
+										<Pressable
+											key={account.accountId}
 											style={[
-												styles.methodText,
-												paymentMethod === method.id && styles.activeMethodText,
+												styles.accountItem,
+												accountId === account.accountId &&
+													styles.activeAccountItem,
 											]}
+											onPress={() => setAccountId(account.accountId)}
 										>
-											{method.title}
-										</Text>
-									</Pressable>
-								))}
-							</View>
+											<View
+												style={[
+													styles.accountIcon,
+													{ backgroundColor: account.color },
+												]}
+											>
+												<Ionicons
+													name={
+														account.accountType === "cash"
+															? "cash-outline"
+															: account.accountType === "credit_card"
+																? "card-outline"
+																: account.accountType === "savings"
+																	? "wallet-outline"
+																	: "business-outline"
+													}
+													size={20}
+													color={
+														accountId === account.accountId ? "#2DC653" : "#666"
+													}
+												/>
+											</View>
+											<Text
+												style={[
+													styles.accountText,
+													accountId === account.accountId &&
+														styles.activeAccountText,
+												]}
+											>
+												{account.accountName}
+											</Text>
+											<Text style={styles.accountText}>
+												{formatCurrency(account.balance)}
+											</Text>
+										</Pressable>
+									))}
+								</View>
+							) : (
+								<Text style={styles.noBudgetText}>No accounts found</Text>
+							)}
 						</View>
 
 						<View style={styles.section}>
@@ -335,10 +386,11 @@ export function AddRecordModal({
 						<Pressable
 							style={[
 								styles.addButton,
-								(!amount || !categoryId || !paymentMethod) && styles.addButtonDisabled,
+								(!amount || !categoryId || !accountId) &&
+									styles.addButtonDisabled,
 							]}
 							onPress={handleAdd}
-							disabled={!amount || !categoryId || !paymentMethod}
+							disabled={!amount || !categoryId || !accountId}
 						>
 							<Text style={styles.addButtonText}>
 								{initialTransaction ? "Save Changes" : "Add Transaction"}
@@ -493,28 +545,37 @@ const styles = StyleSheet.create<Styles>({
 		color: "#2DC653",
 		backgroundColor: "transparent",
 	},
-	methodGrid: {
+	accountGrid: {
+		gap: 8,
+	},
+	accountItem: {
 		flexDirection: "row",
-		flexWrap: "wrap",
-		margin: -6,
-	},
-	methodItem: {
-		width: "33.33%",
-		padding: 6,
-	},
-	activeMethodItem: {
-		backgroundColor: "#2A2A2A",
-		borderRadius: 12,
+		alignItems: "center",
 		padding: 12,
+		backgroundColor: "#1A1A1A",
+		borderRadius: 12,
+		gap: 12,
 	},
-	methodText: {
-		fontSize: 12,
+	activeAccountItem: {
+		backgroundColor: "#2A2A2A",
+		borderColor: "#2DC653",
+		borderWidth: 1,
+	},
+	accountText: {
+		fontSize: 14,
 		color: "#666",
-		marginTop: 4,
-		textAlign: "center",
+		flex: 1,
 	},
-	activeMethodText: {
+	activeAccountText: {
 		color: "#2DC653",
+	},
+	accountIcon: {
+		width: 40,
+		height: 40,
+		borderRadius: 20,
+		alignItems: "center",
+		justifyContent: "center",
+		opacity: 0.2,
 	},
 	noteInput: {
 		backgroundColor: "#1A1A1A",
@@ -540,9 +601,9 @@ const styles = StyleSheet.create<Styles>({
 		fontWeight: "600",
 	},
 	sectionHeader: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
 		marginBottom: 12,
 	},
 	budgetHint: {

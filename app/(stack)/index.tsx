@@ -134,13 +134,9 @@ export default function DashboardScreen() {
 	const handleAddTransaction = useCallback(
 		async (newTransaction: NewTransaction) => {
 			try {
-				// Get the first account (TODO: Allow selecting account)
-				const account = accountsList[0];
-				if (!account) throw new Error("No account available");
-
 				// Create the transaction
 				await addTransaction({
-					accountId: account.accountId,
+					accountId: newTransaction.accountId,
 					categoryId: newTransaction.categoryId,
 					amount:
 						newTransaction.type === "expense"
@@ -151,7 +147,7 @@ export default function DashboardScreen() {
 					transactionType:
 						newTransaction.type === "expense" ? "debit" : "credit",
 					linkedTransactionId: null,
-					budgetId: null,
+					budgetId: newTransaction.budgetId || null,
 				});
 
 				setIsAddModalVisible(false); // Close modal after successful add
@@ -161,7 +157,7 @@ export default function DashboardScreen() {
 				// Optionally show error to user
 			}
 		},
-		[accountsList, addTransaction, refreshAccounts],
+		[addTransaction, refreshAccounts],
 	);
 
 	return (

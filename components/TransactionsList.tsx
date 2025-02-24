@@ -126,7 +126,7 @@ export interface NewTransaction {
 	type: TransactionType;
 	amount: number;
 	categoryId: number;
-	paymentMethod: string;
+	accountId: number;
 	note?: string;
 	budgetId?: number | null;
 }

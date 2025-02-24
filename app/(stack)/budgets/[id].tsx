@@ -125,16 +125,10 @@ export default function BudgetDetailsScreen() {
 
 	const handleAddTransaction = async (newTransaction: NewTransaction) => {
 		try {
-			// Find the selected category
-			const category = TRANSACTION_CATEGORIES.find(
-				(cat) => cat.id === newTransaction.category,
-			);
-			if (!category) throw new Error("Invalid category");
-
 			if (editingTransaction) {
 				// Update existing transaction
 				await updateTransaction(editingTransaction.transactionId, {
-					categoryId: Number.parseInt(category.id),
+					categoryId: newTransaction.categoryId,
 					amount:
 						newTransaction.type === "expense"
 							? -Math.abs(newTransaction.amount)
@@ -146,8 +140,8 @@ export default function BudgetDetailsScreen() {
 			} else {
 				// Create new transaction
 				await addTransaction({
-					accountId: 1, // TODO: Allow selecting account
-					categoryId: Number.parseInt(category.id),
+					accountId: newTransaction.accountId,
+					categoryId: newTransaction.categoryId,
 					amount:
 						newTransaction.type === "expense"
 							? -Math.abs(newTransaction.amount)
@@ -292,8 +286,8 @@ export default function BudgetDetailsScreen() {
 				initialTransaction={editingTransaction ? {
 					type: editingTransaction.transactionType === "debit" ? "expense" : "income",
 					amount: Math.abs(editingTransaction.amount),
-					category: editingTransaction.categoryId.toString(),
-					paymentMethod: "cash", // TODO: Add payment method to transaction schema
+					categoryId: editingTransaction.categoryId,
+					accountId: editingTransaction.accountId,
 					note: editingTransaction.description || undefined,
 				} : undefined}
 			/>

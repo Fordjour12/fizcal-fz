@@ -5,6 +5,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { transactions, categories, type Transaction } from "@/db/schema";
 import { TRANSACTION_CATEGORIES } from "@/components/TransactionsList";
 import type { Ionicons } from "@expo/vector-icons";
+import { useAccounts } from "./useAccounts";
 
 export interface TransactionWithMeta extends Transaction {
 	icon: keyof typeof Ionicons.glyphMap;
@@ -26,6 +27,7 @@ export function useTransactions(options: UseTransactionsOptions = {}) {
 
 	const db = useDB();
 	const { user } = useAuth();
+	const { updateBalance } = useAccounts();
 
 	const dbRef = useRef(db);
 	const userRef = useRef(user);
@@ -124,7 +126,25 @@ export function useTransactions(options: UseTransactionsOptions = {}) {
 			>,
 		) => {
 			try {
-				await dbRef.current.insert(transactions).values(newTransaction);
+				// Start a transaction to ensure both operations succeed or fail together
+				await dbRef.current.transaction(async (tx) => {
+					// Insert the transaction
+					await tx.insert(transactions).values(newTransaction);
+					
+					// For expenses (debit), we need to subtract from the account balance
+					// For income (credit), we add to the account balance
+					const balanceChange = newTransaction.transactionType === "debit" 
+						? -Math.abs(newTransaction.amount)  // Make sure it's negative for expenses
+						: Math.abs(newTransaction.amount);  // Make sure it's positive for income
+
+					// Update the account balance
+					await updateBalance(
+						newTransaction.accountId,
+						balanceChange
+					);
+				});
+
+				// Refresh the transactions list
 				await fetchTransactions();
 			} catch (err) {
 				throw err instanceof Error
@@ -132,7 +152,7 @@ export function useTransactions(options: UseTransactionsOptions = {}) {
 					: new Error("Failed to add transaction");
 			}
 		},
-		[fetchTransactions],
+		[fetchTransactions, updateBalance],
 	);
 
 	const updateTransaction = useCallback(
@@ -141,10 +161,43 @@ export function useTransactions(options: UseTransactionsOptions = {}) {
 			updates: Partial<Omit<Transaction, "transactionId" | "createdAt" | "updatedAt">>,
 		) => {
 			try {
-				await dbRef.current
-					.update(transactions)
-					.set(updates)
-					.where(eq(transactions.transactionId, transactionId));
+				// Get the original transaction
+				const originalTransaction = transactionsList.find(
+					t => t.transactionId === transactionId
+				);
+				if (!originalTransaction) throw new Error("Transaction not found");
+
+				await dbRef.current.transaction(async (tx) => {
+					// Update the transaction
+					await tx
+						.update(transactions)
+						.set(updates)
+						.where(eq(transactions.transactionId, transactionId));
+
+					// If amount, account, or transaction type changed, update account balances
+					if (updates.amount !== undefined || updates.accountId !== undefined || updates.transactionType !== undefined) {
+						// First, reverse the original transaction's effect
+						const originalBalanceChange = originalTransaction.transactionType === "debit"
+							? Math.abs(originalTransaction.amount)  // Add back the amount for expenses
+							: -Math.abs(originalTransaction.amount); // Subtract the amount for income
+
+						await updateBalance(
+							originalTransaction.accountId,
+							originalBalanceChange
+						);
+
+						// Then apply the new transaction's effect
+						const newBalanceChange = (updates.transactionType || originalTransaction.transactionType) === "debit"
+							? -Math.abs(updates.amount || originalTransaction.amount)
+							: Math.abs(updates.amount || originalTransaction.amount);
+
+						await updateBalance(
+							updates.accountId || originalTransaction.accountId,
+							newBalanceChange
+						);
+					}
+				});
+
 				await fetchTransactions();
 			} catch (err) {
 				throw err instanceof Error
@@ -152,15 +205,35 @@ export function useTransactions(options: UseTransactionsOptions = {}) {
 					: new Error("Failed to update transaction");
 			}
 		},
-		[fetchTransactions],
+		[fetchTransactions, updateBalance, transactionsList],
 	);
 
 	const deleteTransaction = useCallback(
 		async (transactionId: number) => {
 			try {
-				await dbRef.current
-					.delete(transactions)
-					.where(eq(transactions.transactionId, transactionId));
+				// Get the transaction to be deleted
+				const transaction = transactionsList.find(
+					t => t.transactionId === transactionId
+				);
+				if (!transaction) throw new Error("Transaction not found");
+
+				await dbRef.current.transaction(async (tx) => {
+					// Delete the transaction
+					await tx
+						.delete(transactions)
+						.where(eq(transactions.transactionId, transactionId));
+
+					// Reverse the transaction's effect on the account balance
+					const balanceChange = transaction.transactionType === "debit"
+						? Math.abs(transaction.amount)  // Add back the amount for expenses
+						: -Math.abs(transaction.amount); // Subtract the amount for income
+
+					await updateBalance(
+						transaction.accountId,
+						balanceChange
+					);
+				});
+
 				await fetchTransactions();
 			} catch (err) {
 				throw err instanceof Error
@@ -168,7 +241,7 @@ export function useTransactions(options: UseTransactionsOptions = {}) {
 					: new Error("Failed to delete transaction");
 			}
 		},
-		[fetchTransactions],
+		[fetchTransactions, updateBalance, transactionsList],
 	);
 
 	return {
