@@ -135,11 +135,49 @@ export function useTransactions(options: UseTransactionsOptions = {}) {
 		[fetchTransactions],
 	);
 
+	const updateTransaction = useCallback(
+		async (
+			transactionId: number,
+			updates: Partial<Omit<Transaction, "transactionId" | "createdAt" | "updatedAt">>,
+		) => {
+			try {
+				await dbRef.current
+					.update(transactions)
+					.set(updates)
+					.where(eq(transactions.transactionId, transactionId));
+				await fetchTransactions();
+			} catch (err) {
+				throw err instanceof Error
+					? err
+					: new Error("Failed to update transaction");
+			}
+		},
+		[fetchTransactions],
+	);
+
+	const deleteTransaction = useCallback(
+		async (transactionId: number) => {
+			try {
+				await dbRef.current
+					.delete(transactions)
+					.where(eq(transactions.transactionId, transactionId));
+				await fetchTransactions();
+			} catch (err) {
+				throw err instanceof Error
+					? err
+					: new Error("Failed to delete transaction");
+			}
+		},
+		[fetchTransactions],
+	);
+
 	return {
 		transactions: transactionsList,
 		isLoading,
 		error,
 		refresh,
 		addTransaction,
+		updateTransaction,
+		deleteTransaction,
 	};
 }

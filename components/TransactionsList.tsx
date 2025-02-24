@@ -125,9 +125,10 @@ function TransactionItem({ transaction, onPress }: TransactionItemProps) {
 export interface NewTransaction {
 	type: TransactionType;
 	amount: number;
-	category: string;
+	categoryId: number;
 	paymentMethod: string;
 	note?: string;
+	budgetId?: number | null;
 }
 
 interface TransactionsListProps {

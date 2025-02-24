@@ -97,13 +97,7 @@ export default function DashboardScreen() {
 	} = useAccounts();
 
 	// Fetch recent transactions (limit 5)
-	const {
-		transactions,
-		isLoading: transactionsLoading,
-		error: transactionsError,
-		refresh: refreshTransactions,
-		addTransaction,
-	} = useTransactions(5);
+	const { transactions, isLoading: transactionsLoading, addTransaction } = useTransactions({ limit: 5 });
 
 	const accountsList = accounts || [];
 
@@ -140,12 +134,6 @@ export default function DashboardScreen() {
 	const handleAddTransaction = useCallback(
 		async (newTransaction: NewTransaction) => {
 			try {
-				// Find the selected category
-				const category = TRANSACTION_CATEGORIES.find(
-					(cat) => cat.id === newTransaction.category,
-				);
-				if (!category) throw new Error("Invalid category");
-
 				// Get the first account (TODO: Allow selecting account)
 				const account = accountsList[0];
 				if (!account) throw new Error("No account available");
@@ -153,7 +141,7 @@ export default function DashboardScreen() {
 				// Create the transaction
 				await addTransaction({
 					accountId: account.accountId,
-					categoryId: Number.parseInt(category.id),
+					categoryId: newTransaction.categoryId,
 					amount:
 						newTransaction.type === "expense"
 							? -Math.abs(newTransaction.amount)
@@ -332,17 +320,6 @@ export default function DashboardScreen() {
 						<View style={styles.loadingContainer}>
 							<Text style={styles.loadingText}>Loading transactions...</Text>
 						</View>
-					) : transactionsError ? (
-						<View style={styles.errorContainer}>
-							<Ionicons name="alert-circle-outline" size={24} color="#ff4444" />
-							<Text style={styles.errorText}>{transactionsError.message}</Text>
-							<Pressable
-								style={styles.retryButton}
-								onPress={refreshTransactions}
-							>
-								<Text style={styles.retryText}>Retry</Text>
-							</Pressable>
-						</View>
 					) : (
 						<TransactionsList
 							transactions={transactions}
@@ -350,22 +327,22 @@ export default function DashboardScreen() {
 						/>
 					)}
 				</View>
-
-				{/* Add Transaction FAB */}
-				<Pressable
-					style={styles.fab}
-					onPress={() => setIsAddModalVisible(true)}
-				>
-					<Ionicons name="add" size={24} color="#fff" />
-				</Pressable>
-
-				{/* Add Transaction Modal */}
-				<AddRecordModal
-					visible={isAddModalVisible}
-					onClose={() => setIsAddModalVisible(false)}
-					onAdd={handleAddTransaction}
-				/>
 			</ScrollView>
+
+			{/* Add Transaction FAB */}
+			<Pressable
+				style={styles.fab}
+				onPress={() => setIsAddModalVisible(true)}
+			>
+				<Ionicons name="add" size={24} color="#fff" />
+			</Pressable>
+
+			{/* Add Transaction Panel */}
+			<AddRecordModal
+				visible={isAddModalVisible}
+				onClose={() => setIsAddModalVisible(false)}
+				onAdd={handleAddTransaction}
+			/>
 		</SafeAreaView>
 	);
 }
@@ -374,6 +351,7 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: "#000",
+		position: "relative",
 	},
 	scrollView: {
 		flex: 1,
@@ -524,11 +502,12 @@ const styles = StyleSheet.create({
 		shadowColor: "#000",
 		shadowOffset: {
 			width: 0,
-			height: 2,
+			height: 4,
 		},
-		shadowOpacity: 0.25,
-		shadowRadius: 3.84,
-		elevation: 5,
+		shadowOpacity: 0.3,
+		shadowRadius: 4.65,
+		elevation: 8,
+		zIndex: 999,
 	},
 	loadingContainer: {
 		padding: 16,
