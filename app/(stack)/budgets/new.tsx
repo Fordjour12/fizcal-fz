@@ -48,7 +48,31 @@ interface Category {
 	isIncome: boolean;
 }
 
+interface ActionButtonProps {
+	onPress: () => void;
+	iconName: keyof typeof Ionicons.glyphMap;
+}
+
+const ActionButton: React.FC<ActionButtonProps> = ({ onPress, iconName }) => {
+	return (
+		<Pressable 
+			onPress={onPress}
+			style={styles.iconButton}
+			accessibilityRole="button"
+		>
+			<Ionicons name={iconName} size={20} color="#fff" />
+		</Pressable>
+	);
+};
+
+const CreateCategory: React.FC<Pick<ActionButtonProps, 'onPress'>> = ({ onPress }) => {
+	return <ActionButton onPress={onPress} iconName="add-circle-outline" />;
+}
+
 export default function NewBudgetScreen() {
+	const handleCreateCategory = () => {
+		router.push('/(stack)/categories/new');
+	};
 	const [budgetName, setBudgetName] = useState("");
 	const [budgetAmount, setBudgetAmount] = useState("");
 	const [periodType, setPeriodType] = useState<PeriodType | null>(null);
@@ -170,17 +194,29 @@ export default function NewBudgetScreen() {
 					</View>
 
 					<View style={styles.inputGroup}>
-						<Text style={styles.label}>Category</Text>
+						<View style={styles.categoryHeader}>
+							<Text style={styles.label}>Category</Text>
+							<View style={styles.categoryActions}>
+								<ActionButton 
+									iconName="list-outline"
+									onPress={() => router.push('/(stack)/categories')}
+								/>
+								<CreateCategory onPress={handleCreateCategory} />
+							</View>
+						</View>
 						<View style={styles.categoriesGrid}>
-							{categoryList.map((category) => (
-								<Pressable
-									key={category.categoryId}
-									style={[
-										styles.categoryButton,
-										selectedCategoryId === category.categoryId &&
-											styles.categoryButtonActive,
-									]}
-									onPress={() => setSelectedCategoryId(category.categoryId)}
+							{categoryList.length === 0 ? (
+								<Text style={styles.noCategoriesText}>No categories yet. Create one to get started!</Text>
+							) : (
+								categoryList.map((category) => (
+									<Pressable
+										key={category.categoryId}
+										style={[
+											styles.categoryButton,
+											selectedCategoryId === category.categoryId &&
+												styles.categoryButtonActive,
+										]}
+										onPress={() => setSelectedCategoryId(category.categoryId)}
 								>
 									<Text
 										style={[
@@ -192,7 +228,7 @@ export default function NewBudgetScreen() {
 										{category.categoryName}
 									</Text>
 								</Pressable>
-							))}
+							)))}
 						</View>
 					</View>
 
@@ -258,9 +294,48 @@ export default function NewBudgetScreen() {
 }
 
 const styles = StyleSheet.create({
+	categoryActions: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+	},
+	iconButton: {
+		padding: 8,
+		backgroundColor: '#333',
+		borderRadius: 8,
+		alignItems: 'center',
+		justifyContent: 'center',
+		minWidth: 36,
+		minHeight: 36,
+	},
+	categoryHeader: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		marginBottom: 8,
+	},
+	noCategoriesText: {
+		color: '#666',
+		fontSize: 14,
+		textAlign: 'center',
+		padding: 16,
+	},
 	container: {
 		flex: 1,
 		backgroundColor: "#000",
+	},
+	createCategoryButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+		padding: 8,
+		backgroundColor: '#1a1a1a',
+		borderRadius: 8,
+	},
+	createCategoryText: {
+		color: '#fff',
+		fontSize: 16,
+		fontWeight: '500',
 	},
 	scrollView: {
 		flex: 1,

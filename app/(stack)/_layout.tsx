@@ -19,6 +19,10 @@ export default function StackLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen name='categories' options={{
+        title: 'Category',
+        headerShown:false
+      }}/>
       <Stack.Screen
         name="transactions"
         options={{
