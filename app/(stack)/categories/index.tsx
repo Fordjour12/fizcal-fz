@@ -1,10 +1,10 @@
-import { categories } from "@/db/schema";
+import { categories, budgets } from "@/db/schema";
 import { useAuth } from "@/hooks/useAuth";
 import useDB from "@/hooks/useDB";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
 import { eq } from "drizzle-orm";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Pressable,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -30,11 +31,7 @@ export default function CategoriesScreen() {
   const db = useDB();
   const { user } = useAuth();
 
-  useEffect(() => {
-    fetchCategories();
-  }, [db, user]);
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     if (!user) return;
     try {
       setIsLoading(true);
@@ -49,17 +46,57 @@ export default function CategoriesScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [setIsLoading, setCategoryList, setError]);
+
+  useEffect(() => {
+    if (db && user) {
+      fetchCategories();
+    }
+  }, [fetchCategories]);
 
   const handleDeleteCategory = async (categoryId: number) => {
     if (!user) return;
     try {
-      await db
-        .delete(categories)
-        .where(eq(categories.categoryId, categoryId));
-      await fetchCategories();
+      // Check if category is used in any budgets
+      const relatedBudgets = await db
+        .select()
+        .from(budgets)
+        .where(eq(budgets.categoryId, categoryId));
+
+      if (relatedBudgets.length > 0) {
+        Alert.alert(
+          "Cannot Delete Category",
+          "This category is being used by one or more budgets. Please update or delete those budgets first.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
+      // Show confirmation dialog
+      Alert.alert(
+        "Delete Category",
+        "Are you sure you want to delete this category? This action cannot be undone.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await db
+                  .delete(categories)
+                  .where(eq(categories.categoryId, categoryId));
+                await fetchCategories();
+              } catch (err) {
+                console.error("Failed to delete category:", err);
+                setError("Failed to delete category");
+              }
+            },
+          },
+        ]
+      );
     } catch (err) {
-      console.error("Failed to delete category:", err);
+      console.error("Failed to check category dependencies:", err);
       setError("Failed to delete category");
     }
   };
