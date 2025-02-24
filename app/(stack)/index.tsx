@@ -3,12 +3,11 @@ import { BudgetCard } from "@/components/BudgetCard";
 import { formatCurrency } from "@/utils/currency";
 import {
 	type NewTransaction,
-	TODAY_TRANSACTIONS,
 	TRANSACTION_CATEGORIES,
-	type Transaction,
 	TransactionsList,
 } from "@/components/TransactionsList";
 import { useAccounts } from "@/hooks/useAccounts";
+import { useTransactions } from "@/hooks/useTransactions";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
 import { useState, useCallback } from "react";
@@ -22,13 +21,21 @@ import Animated, {
 import { SafeAreaView } from "react-native-safe-area-context";
 import React from "react";
 
+/**
+ * Props for the AccountItem component
+ */
 interface AccountItemProps {
-	title: string;
-	type: string;
-	amount: number;
-	color: string;
+	title: string;      // Account name
+	type: string;       // Account type (e.g., "Savings", "Checking")
+	amount: number;     // Current balance
+	color: string;      // Color for the account indicator
 }
 
+/**
+ * AccountItem Component
+ * Displays a single account item in the accounts list
+ * Shows account name, type, and current balance
+ */
 function AccountItem({ title, type, amount, color }: AccountItemProps) {
 	return (
 		<Animated.View entering={FadeInDown.delay(300)} style={styles.accountItem}>
@@ -39,18 +46,21 @@ function AccountItem({ title, type, amount, color }: AccountItemProps) {
 					<Text style={styles.accountType}>{type}</Text>
 				</View>
 			</View>
-			<Text style={styles.accountAmount}>
-				{formatCurrency(amount)}
-			</Text>
+			<Text style={styles.accountAmount}>{formatCurrency(amount)}</Text>
 		</Animated.View>
 	);
 }
 
+/**
+ * AddAccountCard Component
+ * Displays a card to add a new account
+ * Shown at the bottom of the accounts list
+ */
 function AddAccountCard() {
 	return (
 		<Animated.View entering={FadeInDown.delay(300)} style={styles.accountItem}>
 			<View style={styles.accountLeft}>
-				<View style={[styles.accountDot, { backgroundColor: '#2EC654' }]} />
+				<View style={[styles.accountDot, { backgroundColor: "#2EC654" }]} />
 				<View>
 					<Text style={styles.accountTitle}>Add New Account</Text>
 					<Text style={styles.accountType}>Get started with a new account</Text>
@@ -61,14 +71,43 @@ function AddAccountCard() {
 	);
 }
 
+/**
+ * DashboardScreen Component
+ * Main dashboard screen of the application
+ * 
+ * Features:
+ * - Displays total balance with month-over-month growth
+ * - Shows expandable list of accounts
+ * - Displays budget overview with top spending categories
+ * - Shows recent transactions
+ * - Provides quick access to add new transactions
+ */
 export default function DashboardScreen() {
+	// State for UI controls
 	const [isAddModalVisible, setIsAddModalVisible] = useState(false);
 	const [isAccountsExpanded, setIsAccountsExpanded] = useState(false);
-	const { accounts, isLoading, totalBalance, error, refresh } = useAccounts();
-	console.log('Dashboard state:', { isLoading, accounts, error });
+
+	// Fetch accounts data
+	const {
+		accounts,
+		isLoading: accountsLoading,
+		totalBalance,
+		error: accountsError,
+		refresh: refreshAccounts,
+	} = useAccounts();
+
+	// Fetch recent transactions (limit 5)
+	const {
+		transactions,
+		isLoading: transactionsLoading,
+		error: transactionsError,
+		refresh: refreshTransactions,
+		addTransaction,
+	} = useTransactions(5);
 
 	const accountsList = accounts || [];
 
+	// Animation styles for the accounts dropdown
 	const chevronStyle = useAnimatedStyle(() => ({
 		transform: [
 			{
@@ -82,50 +121,60 @@ export default function DashboardScreen() {
 		opacity: withTiming(isAccountsExpanded ? 1 : 0, { duration: 200 }),
 	}));
 
-	const [transactions, setTransactions] = useState<Transaction[]>(
-		TODAY_TRANSACTIONS.slice(0, 5),
-	);
-
-	// Calculate month-over-month growth (this should be replaced with actual calculations later)
+	// TODO: Implement actual growth calculations
 	const growth = 0;
 	const growthPercentage = 0;
 
-	// Memoize the transaction handlers
+	// Navigation handler for transactions
 	const handleTransactionPress = useCallback(() => {
 		router.push("/(stack)/transactions");
 	}, []);
 
-	const handleAddTransaction = useCallback((newTransaction: NewTransaction) => {
-		try {
-			const transaction: Transaction = {
-				id: Date.now().toString(),
-				type: newTransaction.type === "expense" ? "Expense" : "Income",
-				amount: newTransaction.amount,
-				category:
-					TRANSACTION_CATEGORIES.find((cat) => cat.id === newTransaction.category)
-						?.title || "",
-				paymentMethod: newTransaction.paymentMethod,
-				date: new Date()
-					.toLocaleDateString("en-US", {
-						day: "2-digit",
-						month: "short",
-						year: "numeric",
-					})
-					.toUpperCase(),
-				icon:
-					TRANSACTION_CATEGORIES.find((cat) => cat.id === newTransaction.category)
-						?.icon || "cash-outline",
-				iconColor: newTransaction.amount < 0 ? "#E85D75" : "#2DC653",
-				iconBackground: newTransaction.amount < 0 ? "#4A2328" : "#1B4332",
-			};
+	/**
+	 * Handles adding a new transaction
+	 * 1. Validates the transaction data
+	 * 2. Determines the transaction type and amount
+	 * 3. Creates the transaction in the database
+	 * 4. Refreshes account balances
+	 */
+	const handleAddTransaction = useCallback(
+		async (newTransaction: NewTransaction) => {
+			try {
+				// Find the selected category
+				const category = TRANSACTION_CATEGORIES.find(
+					(cat) => cat.id === newTransaction.category,
+				);
+				if (!category) throw new Error("Invalid category");
 
-			setTransactions((prev) => [transaction, ...prev.slice(0, 4)]);
-			setIsAddModalVisible(false); // Close modal after successful add
-		} catch (error) {
-			console.error('Error adding transaction:', error);
-			// Optionally show error to user
-		}
-	}, []);
+				// Get the first account (TODO: Allow selecting account)
+				const account = accountsList[0];
+				if (!account) throw new Error("No account available");
+
+				// Create the transaction
+				await addTransaction({
+					accountId: account.accountId,
+					categoryId: Number.parseInt(category.id),
+					amount:
+						newTransaction.type === "expense"
+							? -Math.abs(newTransaction.amount)
+							: Math.abs(newTransaction.amount),
+					description: newTransaction.note || "",
+					transactionDate: new Date(),
+					transactionType:
+						newTransaction.type === "expense" ? "debit" : "credit",
+					linkedTransactionId: null,
+					budgetId: null,
+				});
+
+				setIsAddModalVisible(false); // Close modal after successful add
+				refreshAccounts(); // Refresh account balances
+			} catch (error) {
+				console.error("Error adding transaction:", error);
+				// Optionally show error to user
+			}
+		},
+		[accountsList, addTransaction, refreshAccounts],
+	);
 
 	return (
 		<SafeAreaView style={styles.container}>
@@ -138,6 +187,7 @@ export default function DashboardScreen() {
 				style={styles.scrollView}
 				showsVerticalScrollIndicator={false}
 			>
+				{/* Header Section */}
 				<View style={styles.header}>
 					<View style={styles.headerRow}>
 						<View style={styles.headerLeft} />
@@ -151,6 +201,7 @@ export default function DashboardScreen() {
 						</View>
 					</View>
 
+					{/* Balance and Accounts Section */}
 					<Pressable onPress={() => setIsAccountsExpanded(!isAccountsExpanded)}>
 						<Animated.View
 							entering={FadeInDown.delay(200)}
@@ -159,6 +210,7 @@ export default function DashboardScreen() {
 								isAccountsExpanded && styles.balanceContainerExpanded,
 							]}
 						>
+							{/* Total Balance Display */}
 							<View style={styles.balanceHeader}>
 								<Text style={styles.balance}>
 									{formatCurrency(totalBalance)}
@@ -167,6 +219,8 @@ export default function DashboardScreen() {
 									<Ionicons name="chevron-down" size={24} color="#fff" />
 								</Animated.View>
 							</View>
+
+							{/* Growth Statistics */}
 							<View style={styles.growthContainer}>
 								<Text style={styles.growthAmount}>
 									+{formatCurrency(growth)}
@@ -175,6 +229,8 @@ export default function DashboardScreen() {
 									{growthPercentage}% the last year
 								</Text>
 							</View>
+
+							{/* Accounts List Header */}
 							<View style={styles.accountsHeader}>
 								<Text style={styles.accountsTitle}>Accounts</Text>
 								<Pressable
@@ -185,25 +241,34 @@ export default function DashboardScreen() {
 									<Ionicons name="chevron-forward" size={16} color="#2DC653" />
 								</Pressable>
 							</View>
-							{isLoading ? (
+
+							{/* Accounts List Content */}
+							{accountsLoading ? (
 								<View style={styles.loadingContainer}>
 									<Text style={styles.loadingText}>Loading accounts...</Text>
 								</View>
+							) : accountsError ? (
+								<View style={styles.errorContainer}>
+									<Ionicons
+										name="alert-circle-outline"
+										size={24}
+										color="#ff4444"
+									/>
+									<Text style={styles.errorText}>{accountsError.message}</Text>
+									<Pressable
+										style={styles.retryButton}
+										onPress={refreshAccounts}
+									>
+										<Text style={styles.retryText}>Retry</Text>
+									</Pressable>
+								</View>
 							) : (
 								<Animated.View style={[styles.accountsDropdown, dropdownStyle]}>
-									{error ? (
-										<View style={styles.errorContainer}>
-											<Ionicons name="alert-circle-outline" size={24} color="#ff4444" />
-											<Text style={styles.errorText}>{error.message}</Text>
-											<Pressable style={styles.retryButton} onPress={refresh}>
-												<Text style={styles.retryText}>Retry</Text>
-											</Pressable>
-										</View>
-									) : accountsList.length === 0 ? (
+									{accountsList.length === 0 ? (
 										<View style={styles.emptyContainer}>
 											<Ionicons name="wallet-outline" size={24} color="#999" />
 											<Text style={styles.emptyText}>No accounts found</Text>
-											<Pressable 
+											<Pressable
 												style={styles.addAccountButton}
 												onPress={() => router.push("/(stack)/accounts/new")}
 											>
@@ -213,9 +278,13 @@ export default function DashboardScreen() {
 									) : (
 										<>
 											{accountsList.map((account) => (
-												<Pressable 
+												<Pressable
 													key={account.accountId}
-													onPress={() => router.push(`/(stack)/accounts/${account.accountId}`)}
+													onPress={() =>
+														router.push(
+															`/(stack)/accounts/${account.accountId}`,
+														)
+													}
 												>
 													<AccountItem
 														title={account.accountName}
@@ -225,7 +294,7 @@ export default function DashboardScreen() {
 													/>
 												</Pressable>
 											))}
-											<Pressable 
+											<Pressable
 												onPress={() => router.push("/(stack)/accounts/new")}
 											>
 												<AddAccountCard />
@@ -238,33 +307,16 @@ export default function DashboardScreen() {
 					</Pressable>
 				</View>
 
+				{/* Budget Overview Section */}
 				<View style={styles.budgetSection}>
 					<Pressable onPress={() => router.push("/(stack)/budgets/")}>
 						<BudgetCard
-							amountLeft={14500.0}
-							amountSpent={12450.3}
-							categories={[
-								{
-									title: "Entertainment",
-									spent: 3430,
-									icon: "game-controller",
-									iconColor: "#2DC653",
-									iconBackground: "#1B4332",
-									progress: 75,
-								},
-								{
-									title: "Food",
-									spent: 430,
-									icon: "restaurant",
-									iconColor: "#E85D75",
-									iconBackground: "#4A2328",
-									progress: 45,
-								},
-							]}
+							onPressAllBudgets={() => router.push("/(stack)/budgets/")}
 						/>
 					</Pressable>
 				</View>
 
+				{/* Recent Transactions Section */}
 				<View style={styles.section}>
 					<View style={styles.sectionHeader}>
 						<Text style={styles.sectionTitle}>Recent Transactions</Text>
@@ -276,12 +328,30 @@ export default function DashboardScreen() {
 							<Ionicons name="chevron-forward" size={16} color="#2DC653" />
 						</Pressable>
 					</View>
-					<TransactionsList
-						transactions={transactions}
-						onTransactionPress={handleTransactionPress}
-					/>
+					{transactionsLoading ? (
+						<View style={styles.loadingContainer}>
+							<Text style={styles.loadingText}>Loading transactions...</Text>
+						</View>
+					) : transactionsError ? (
+						<View style={styles.errorContainer}>
+							<Ionicons name="alert-circle-outline" size={24} color="#ff4444" />
+							<Text style={styles.errorText}>{transactionsError.message}</Text>
+							<Pressable
+								style={styles.retryButton}
+								onPress={refreshTransactions}
+							>
+								<Text style={styles.retryText}>Retry</Text>
+							</Pressable>
+						</View>
+					) : (
+						<TransactionsList
+							transactions={transactions}
+							onTransactionPress={handleTransactionPress}
+						/>
+					)}
 				</View>
 
+				{/* Add Transaction FAB */}
 				<Pressable
 					style={styles.fab}
 					onPress={() => setIsAddModalVisible(true)}
@@ -289,6 +359,7 @@ export default function DashboardScreen() {
 					<Ionicons name="add" size={24} color="#fff" />
 				</Pressable>
 
+				{/* Add Transaction Modal */}
 				<AddRecordModal
 					visible={isAddModalVisible}
 					onClose={() => setIsAddModalVisible(false)}
@@ -300,125 +371,6 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-	loadingContainer: {
-		padding: 16,
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	loadingText: {
-		color: "#fff",
-		textAlign: "center",
-		fontSize: 16,
-		marginTop: 8,
-	},
-	errorContainer: {
-		padding: 16,
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	errorText: {
-		color: "#ff4444",
-		textAlign: "center",
-		fontSize: 16,
-		marginTop: 8,
-	},
-	retryButton: {
-		marginTop: 12,
-		paddingVertical: 8,
-		paddingHorizontal: 16,
-		backgroundColor: '#2DC653',
-		borderRadius: 8,
-	},
-	retryText: {
-		color: '#fff',
-		fontSize: 14,
-		fontWeight: '600',
-	},
-	emptyContainer: {
-		padding: 16,
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	emptyText: {
-		color: "#999",
-		textAlign: "center",
-		fontSize: 16,
-		marginTop: 8,
-	},
-	addAccountButton: {
-		marginTop: 12,
-		paddingVertical: 8,
-		paddingHorizontal: 16,
-		backgroundColor: '#2DC653',
-		borderRadius: 8,
-	},
-	addAccountText: {
-		color: '#fff',
-		fontSize: 14,
-		fontWeight: '600',
-	},
-	balanceHeader: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		alignItems: "center",
-	},
-	chevron: {
-		transform: [{ rotate: "0deg" }],
-	},
-	chevronExpanded: {
-		transform: [{ rotate: "180deg" }],
-	},
-	balanceContainerExpanded: {
-		backgroundColor: "rgba(255,255,255,0.05)",
-		padding: 16,
-		borderRadius: 16,
-	},
-	accountsDropdown: {
-		marginTop: 16,
-		overflow: "hidden",
-	},
-	headerLeft: {
-		flex: 1,
-	},
-	fab: {
-		position: "absolute",
-		bottom: 32,
-		right: 32,
-		width: 56,
-		height: 56,
-		borderRadius: 28,
-		backgroundColor: "#2DC653",
-		alignItems: "center",
-		justifyContent: "center",
-		shadowColor: "#000",
-		shadowOffset: {
-			width: 0,
-			height: 2,
-		},
-		shadowOpacity: 0.25,
-		shadowRadius: 3.84,
-		elevation: 5,
-	},
-	section: {
-		marginTop: 32,
-		paddingHorizontal: 20,
-	},
-	sectionHeader: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		alignItems: "center",
-		marginBottom: 16,
-	},
-	viewAllButton: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 4,
-	},
-	viewAllText: {
-		fontSize: 14,
-		color: "#2DC653",
-		fontWeight: "500",
-	},
 	container: {
 		flex: 1,
 		backgroundColor: "#000",
@@ -436,7 +388,9 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		marginBottom: 40,
 	},
-
+	headerLeft: {
+		flex: 1,
+	},
 	headerRight: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -450,7 +404,6 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 	},
-
 	time: {
 		color: "#fff",
 		fontSize: 16,
@@ -487,9 +440,25 @@ const styles = StyleSheet.create({
 		color: "#666",
 		fontSize: 16,
 	},
-
-	accountsSection: {
+	section: {
+		marginTop: 32,
 		paddingHorizontal: 20,
+	},
+	sectionHeader: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		marginBottom: 16,
+	},
+	viewAllButton: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 4,
+	},
+	viewAllText: {
+		fontSize: 14,
+		color: "#2DC653",
+		fontWeight: "500",
 	},
 	sectionTitle: {
 		fontSize: 22,
@@ -531,15 +500,111 @@ const styles = StyleSheet.create({
 		color: "#fff",
 	},
 	accountsHeader: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
 		marginTop: 24,
 		marginBottom: 16,
 	},
 	accountsTitle: {
 		fontSize: 18,
-		fontWeight: '600',
-		color: '#fff',
+		fontWeight: "600",
+		color: "#fff",
+	},
+	fab: {
+		position: "absolute",
+		bottom: 32,
+		right: 32,
+		width: 56,
+		height: 56,
+		borderRadius: 28,
+		backgroundColor: "#2DC653",
+		alignItems: "center",
+		justifyContent: "center",
+		shadowColor: "#000",
+		shadowOffset: {
+			width: 0,
+			height: 2,
+		},
+		shadowOpacity: 0.25,
+		shadowRadius: 3.84,
+		elevation: 5,
+	},
+	loadingContainer: {
+		padding: 16,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	loadingText: {
+		color: "#fff",
+		textAlign: "center",
+		fontSize: 16,
+		marginTop: 8,
+	},
+	errorContainer: {
+		padding: 16,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	errorText: {
+		color: "#ff4444",
+		textAlign: "center",
+		fontSize: 16,
+		marginTop: 8,
+	},
+	retryButton: {
+		marginTop: 12,
+		paddingVertical: 8,
+		paddingHorizontal: 16,
+		backgroundColor: "#2DC653",
+		borderRadius: 8,
+	},
+	retryText: {
+		color: "#fff",
+		fontSize: 14,
+		fontWeight: "600",
+	},
+	emptyContainer: {
+		padding: 16,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	emptyText: {
+		color: "#999",
+		textAlign: "center",
+		fontSize: 16,
+		marginTop: 8,
+	},
+	addAccountButton: {
+		marginTop: 12,
+		paddingVertical: 8,
+		paddingHorizontal: 16,
+		backgroundColor: "#2DC653",
+		borderRadius: 8,
+	},
+	addAccountText: {
+		color: "#fff",
+		fontSize: 14,
+		fontWeight: "600",
+	},
+	balanceHeader: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+	},
+	chevron: {
+		transform: [{ rotate: "0deg" }],
+	},
+	chevronExpanded: {
+		transform: [{ rotate: "180deg" }],
+	},
+	balanceContainerExpanded: {
+		backgroundColor: "rgba(255,255,255,0.05)",
+		padding: 16,
+		borderRadius: 16,
+	},
+	accountsDropdown: {
+		marginTop: 16,
+		overflow: "hidden",
 	},
 });

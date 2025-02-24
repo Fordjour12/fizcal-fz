@@ -1,317 +1,262 @@
-import { StyleSheet, View, Text, Pressable, ScrollView } from 'react-native';
-import { useState } from 'react';
-import { Stack, useLocalSearchParams, router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { AddRecordModal } from '@/components/AddRecordModal';
-import { formatCurrency } from '@/utils/currency';
+import React from "react";
+import { StyleSheet, View, Text, Pressable, ScrollView } from "react-native";
+import { useState } from "react";
+import { Stack, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { AddRecordModal } from "@/components/AddRecordModal";
+import { formatCurrency } from "@/utils/currency";
+import { useBudgets } from "@/hooks/useBudgets";
+import { useTransactions } from "@/hooks/useTransactions";
+import type { TransactionWithMeta } from "@/hooks/useTransactions";
+import { format } from "date-fns";
 
+/**
+ * Props for the Transaction component
+ */
 interface TransactionProps {
-  type: string;
-  amount: number;
-  date: string;
-  category: string;
-  paymentMethod: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  iconColor: string;
-  iconBackground: string;
+	transaction: TransactionWithMeta;
 }
 
-function Transaction({ type, amount, date, category, paymentMethod, icon, iconColor, iconBackground }: TransactionProps) {
-  const isExpense = amount < 0;
-  
-  return (
-    <Animated.View entering={FadeInDown} style={styles.transaction}>
-      <View style={styles.transactionLeft}>
-        <View style={[styles.transactionIcon, { backgroundColor: iconBackground }]}>
-          <Ionicons name={icon} size={20} color={iconColor} />
-        </View>
-        <View>
-          <Text style={styles.transactionType}>{type}</Text>
-          <Text style={styles.transactionMethod}>{paymentMethod}</Text>
-        </View>
-      </View>
-      <View style={styles.transactionRight}>
-        <Text style={[styles.transactionAmount, { color: isExpense ? '#FF3B30' : '#2DC653' }]}>
-          {isExpense ? '-' : ''}{formatCurrency(Math.abs(amount))}
-        </Text>
-        <Text style={styles.transactionDate}>{date}</Text>
-      </View>
-    </Animated.View>
-  );
+/**
+ * Transaction component displays a single transaction item
+ * Shows the transaction icon, category, date, and amount
+ */
+function Transaction({ transaction }: TransactionProps) {
+	return (
+		<Animated.View entering={FadeInDown} style={styles.transactionContainer}>
+			<View style={[styles.iconContainer, { backgroundColor: transaction.iconBackground }]}>
+				<Ionicons name={transaction.icon} size={24} color={transaction.iconColor} />
+			</View>
+			<View style={styles.transactionDetails}>
+				<Text style={styles.transactionDescription}>
+					{transaction.description || transaction.categoryName}
+				</Text>
+				<Text style={styles.transactionDate}>
+					{format(transaction.transactionDate, "MMM d, yyyy")}
+				</Text>
+			</View>
+			<Text
+				style={[
+					styles.transactionAmount,
+					{ color: transaction.amount < 0 ? "#E85D75" : "#2DC653" },
+				]}
+			>
+				{formatCurrency(transaction.amount)}
+			</Text>
+		</Animated.View>
+	);
 }
 
+/**
+ * BudgetDetailsScreen displays detailed information about a specific budget
+ * Shows budget progress, remaining amount, and related transactions
+ */
 export default function BudgetDetailsScreen() {
-  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
-  const { id } = useLocalSearchParams();
-  const title = 'Entertainment';
-  const budget = 10000;
-  const spent = 5450.30;
-  const progress = 54;
+	const { id } = useLocalSearchParams<{ id: string }>();
+	const [isAddModalVisible, setIsAddModalVisible] = useState(false);
 
-  const transactions: TransactionProps[] = [
-    {
-      type: 'Shopping',
-      amount: -25.56,
-      date: '31 Aug 2023',
-      category: 'Entertainment',
-      paymentMethod: 'Credit Card',
-      icon: 'cart',
-      iconColor: '#E85D75',
-      iconBackground: '#4A2328'
-    },
-    {
-      type: 'Salary',
-      amount: 500.50,
-      date: '31 Aug 2023',
-      category: 'Income',
-      paymentMethod: 'Cash',
-      icon: 'cash',
-      iconColor: '#2DC653',
-      iconBackground: '#1B4332'
-    },
-    {
-      type: 'Vacation',
-      amount: -25.56,
-      date: '31 Aug 2023',
-      category: 'Entertainment',
-      paymentMethod: 'Credit Card',
-      icon: 'airplane',
-      iconColor: '#E85D75',
-      iconBackground: '#4A2328'
-    }
-  ];
+	// Fetch budget and transaction data
+	const { budgets, isLoading: isLoadingBudgets } = useBudgets();
+	const { transactions, isLoading: isLoadingTransactions } = useTransactions({
+		budgetId: id ? Number(id) : null,
+	});
 
-  return (
-    <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          title,
-          headerTintColor: '#2DC653',
-          headerStyle: {
-            backgroundColor: '#000',
-          },
-          headerTitleStyle: {
-            color: '#2DC653',
-            fontSize: 20,
-            fontWeight: '600',
-          },
-          headerLeft: () => (
-            <Pressable
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
-              <Ionicons name="chevron-back" size={24} color="#2DC653" />
-            </Pressable>
-          ),
-          headerRight: () => (
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Pressable 
-                style={[styles.menuButton, { backgroundColor: '#1B4332' }]}
-                onPress={() => setIsAddModalVisible(true)}
-              >
-                <Ionicons name="add" size={24} color="#2DC653" />
-              </Pressable>
-              {/* <Pressable style={[styles.menuButton, { backgroundColor: '#1B4332' }]}>
-                <Ionicons name="ellipsis-horizontal" size={24} color="#2DC653" />
-              </Pressable> */}
-            </View>
-          ),
-        }}
-      />
+	// Find the current budget
+	const budget = budgets.find((b) => b.budgetId === Number(id));
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.periodSelector}>
-          <Pressable>
-            <Ionicons name="chevron-back" size={24} color="#fff" />
-          </Pressable>
-          <Pressable style={styles.periodButton}>
-            <Text style={styles.periodText}>This Month</Text>
-            <Ionicons name="chevron-down" size={20} color="#666" />
-          </Pressable>
-          <Pressable>
-            <Ionicons name="chevron-forward" size={24} color="#fff" />
-          </Pressable>
-        </View>
+	// Calculate progress
+	const progress = budget ? (budget.spent / budget.budgetAmount) * 100 : 0;
+	const remaining = budget ? budget.budgetAmount - budget.spent : 0;
 
-        <Text style={styles.amount}>
-          ${budget.toLocaleString('en-US')}
-        </Text>
-        <Text style={styles.percentageText}>{progress}%</Text>
-        
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${progress}%` }]} />
-        </View>
-        
-        <View style={styles.budgetDetails}>
-          <Text style={styles.spentAmount}>
-            -${spent.toLocaleString('en-US')} spent
-          </Text>
-          <Text style={styles.remainingAmount}>
-            ${(budget - spent).toLocaleString('en-US')} left
-          </Text>
-        </View>
+	return (
+		<>
+			<Stack.Screen
+				options={{
+					title: budget?.budgetName || "Budget Details",
+					headerTintColor: "#2DC653",
+					headerStyle: { backgroundColor: "#000" },
+					headerRight: () => (
+						<Pressable
+							onPress={() => setIsAddModalVisible(true)}
+							style={({ pressed }) => ({
+								opacity: pressed ? 0.5 : 1,
+							})}
+						>
+							<Ionicons name="add-circle-outline" size={24} color="#2DC653" />
+						</Pressable>
+					),
+				}}
+			/>
 
-        <View style={styles.transactionsSection}>
-          <Text style={styles.sectionTitle}>Last Records</Text>
-          <Text style={styles.dateHeader}>16 September 2023</Text>
-          
-          {transactions.map((transaction, index) => (
-            <Transaction key={index} {...transaction} />
-          ))}
+			<ScrollView style={styles.container}>
+				{/* Budget Progress Section */}
+				<View style={styles.progressContainer}>
+					<View style={styles.progressHeader}>
+						<Text style={styles.progressTitle}>Budget Progress</Text>
+						<Text style={styles.progressPercentage}>{Math.round(progress)}%</Text>
+					</View>
+					<View style={styles.progressBarContainer}>
+						<View
+							style={[
+								styles.progressBar,
+								{
+									width: `${Math.min(progress, 100)}%`,
+									backgroundColor: progress > 100 ? "#E85D75" : "#2DC653",
+								},
+							]}
+						/>
+					</View>
+					<View style={styles.amountContainer}>
+						<View>
+							<Text style={styles.amountLabel}>Spent</Text>
+							<Text style={styles.amountValue}>
+								{budget ? formatCurrency(budget.spent) : "-"}
+							</Text>
+						</View>
+						<View>
+							<Text style={styles.amountLabel}>Remaining</Text>
+							<Text
+								style={[
+									styles.amountValue,
+									{ color: remaining < 0 ? "#E85D75" : "#2DC653" },
+								]}
+							>
+								{formatCurrency(remaining)}
+							</Text>
+						</View>
+					</View>
+				</View>
 
-          <Text style={styles.dateHeader}>15 September 2023</Text>
-          
-          {transactions.map((transaction, index) => (
-            <Transaction key={`prev-${index}`} {...transaction} />
-          ))}
-        </View>
-      </ScrollView>
+				{/* Transactions Section */}
+				<View style={styles.transactionsContainer}>
+					<Text style={styles.sectionTitle}>Transactions</Text>
+					{isLoadingTransactions ? (
+						<Text style={styles.loadingText}>Loading transactions...</Text>
+					) : transactions.length > 0 ? (
+						transactions.map((transaction) => (
+							<Transaction
+								key={transaction.transactionId}
+								transaction={transaction}
+							/>
+						))
+					) : (
+						<Text style={styles.emptyText}>No transactions found</Text>
+					)}
+				</View>
+			</ScrollView>
 
-      <AddRecordModal 
-        visible={isAddModalVisible}
-        onClose={() => setIsAddModalVisible(false)}
-      />
-    </View>
-  );
+			{/* Add Transaction Modal */}
+			<AddRecordModal
+				visible={isAddModalVisible}
+				onClose={() => setIsAddModalVisible(false)}
+			/>
+		</>
+	);
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(45,198,83,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 10,
-  },
-  menuButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  periodSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 20,
-    marginVertical: 20,
-  },
-  periodButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#141414',
-    borderRadius: 20,
-  },
-  periodText: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: '500',
-  },
-  amount: {
-    fontSize: 34,
-    fontWeight: '600',
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  percentageText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 2,
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#2DC653',
-    borderRadius: 2,
-  },
-  budgetDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  spentAmount: {
-    fontSize: 14,
-    color: '#666',
-  },
-  remainingAmount: {
-    fontSize: 14,
-    color: '#fff',
-  },
-  transactionsSection: {
-    flex: 1,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 24,
-  },
-  dateHeader: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
-  },
-  transaction: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  transactionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  transactionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  transactionType: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '500',
-  },
-  transactionMethod: {
-    fontSize: 14,
-    color: '#666',
-  },
-  transactionRight: {
-    alignItems: 'flex-end',
-  },
-  transactionAmount: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  transactionDate: {
-    fontSize: 14,
-    color: '#666',
-  },
+	container: {
+		flex: 1,
+		backgroundColor: "#000",
+	},
+	progressContainer: {
+		padding: 16,
+		backgroundColor: "#141414",
+		borderRadius: 12,
+		margin: 16,
+	},
+	progressHeader: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		marginBottom: 8,
+	},
+	progressTitle: {
+		fontSize: 18,
+		fontWeight: "600",
+		color: "#fff",
+	},
+	progressPercentage: {
+		fontSize: 16,
+		fontWeight: "600",
+		color: "#666",
+	},
+	progressBarContainer: {
+		height: 8,
+		backgroundColor: "rgba(255,255,255,0.1)",
+		borderRadius: 4,
+		overflow: "hidden",
+	},
+	progressBar: {
+		height: "100%",
+		borderRadius: 4,
+	},
+	amountContainer: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		marginTop: 16,
+	},
+	amountLabel: {
+		fontSize: 14,
+		color: "#666",
+		marginBottom: 4,
+	},
+	amountValue: {
+		fontSize: 16,
+		fontWeight: "600",
+		color: "#fff",
+	},
+	transactionsContainer: {
+		padding: 16,
+	},
+	sectionTitle: {
+		fontSize: 18,
+		fontWeight: "600",
+		color: "#fff",
+		marginBottom: 16,
+	},
+	transactionContainer: {
+		flexDirection: "row",
+		alignItems: "center",
+		backgroundColor: "#141414",
+		padding: 12,
+		borderRadius: 12,
+		marginBottom: 8,
+	},
+	iconContainer: {
+		width: 40,
+		height: 40,
+		borderRadius: 20,
+		justifyContent: "center",
+		alignItems: "center",
+		marginRight: 12,
+	},
+	transactionDetails: {
+		flex: 1,
+	},
+	transactionDescription: {
+		fontSize: 16,
+		fontWeight: "500",
+		color: "#fff",
+		marginBottom: 4,
+	},
+	transactionDate: {
+		fontSize: 14,
+		color: "#666",
+	},
+	transactionAmount: {
+		fontSize: 16,
+		fontWeight: "600",
+	},
+	loadingText: {
+		textAlign: "center",
+		color: "#666",
+		marginTop: 16,
+	},
+	emptyText: {
+		textAlign: "center",
+		color: "#666",
+		marginTop: 16,
+	},
 });

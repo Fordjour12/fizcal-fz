@@ -16,6 +16,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
+interface FormState {
+  categoryName: string;
+  isIncome: boolean;
+}
+
 export default function NewCategoryScreen() {
   const [categoryName, setCategoryName] = useState("");
   const [isIncome, setIsIncome] = useState(false);
@@ -25,7 +30,7 @@ export default function NewCategoryScreen() {
   const db = useDB();
   const { user } = useAuth();
 
-  const handleSubmit = async () => {
+  const handleSubmit = React.useCallback(async () => {
     try {
       setError(null);
       setIsLoading(true);
@@ -51,7 +56,7 @@ export default function NewCategoryScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [categoryName, isIncome]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -80,12 +85,24 @@ export default function NewCategoryScreen() {
               placeholderTextColor="#666"
               value={categoryName}
               onChangeText={setCategoryName}
+              returnKeyType="done"
+              autoCapitalize="words"
+              maxLength={50}
+              accessibilityLabel="Category name input"
+              accessibilityHint="Enter a name for your new category"
             />
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Is Income Category?</Text>
-            <View style={styles.switchContainer}>
+            <Pressable 
+              style={styles.switchContainer}
+              onPress={() => setIsIncome(!isIncome)}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: isIncome }}
+              accessibilityLabel="Toggle income category"
+              accessibilityHint="Double tap to toggle between income and expense category"
+            >
               <Switch
                 value={isIncome}
                 onValueChange={setIsIncome}
@@ -95,7 +112,7 @@ export default function NewCategoryScreen() {
               <Text style={styles.switchLabel}>
                 {isIncome ? "Income" : "Expense"}
               </Text>
-            </View>
+            </Pressable>
           </View>
         </Animated.View>
       </ScrollView>

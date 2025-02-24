@@ -4,21 +4,21 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 import { formatCurrency } from '@/utils/currency';
+import { useBudgets } from '@/hooks/useBudgets';
 
 interface BudgetCardProps {
-  amountLeft: number;
-  amountSpent: number;
-  categories: Array<{
-    title: string;
-    spent: number;
-    icon: keyof typeof Ionicons.glyphMap;
-    iconColor: string;
-    iconBackground: string;
-    progress: number;
-  }>;
   onPressAllBudgets?: () => void;
 }
 
+/**
+ * CircularProgress Component
+ * Renders a circular progress indicator using SVG
+ * 
+ * @param progress - The percentage of progress (0-100)
+ * @param size - The diameter of the circle in pixels
+ * @param strokeWidth - The width of the progress line
+ * @param color - The color of the progress line
+ */
 function CircularProgress({ progress, size, strokeWidth, color }: { progress: number; size: number; strokeWidth: number; color: string }) {
   const center = size / 2;
   const radius = size / 2 - strokeWidth / 2;
@@ -27,6 +27,7 @@ function CircularProgress({ progress, size, strokeWidth, color }: { progress: nu
 
   return (
     <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+      {/* Background circle */}
       <Circle
         cx={center}
         cy={center}
@@ -35,6 +36,7 @@ function CircularProgress({ progress, size, strokeWidth, color }: { progress: nu
         strokeWidth={strokeWidth}
         fill="transparent"
       />
+      {/* Progress circle */}
       <Circle
         cx={center}
         cy={center}
@@ -50,10 +52,76 @@ function CircularProgress({ progress, size, strokeWidth, color }: { progress: nu
   );
 }
 
-export function BudgetCard({ amountLeft, amountSpent, categories, onPressAllBudgets }: BudgetCardProps) {
+/**
+ * BudgetCard Component
+ * Displays a summary of the user's budgets on the dashboard
+ * Shows total budget remaining, total spent, and top 2 budgets by percentage spent
+ * 
+ * Features:
+ * - Displays total amount left across all budgets
+ * - Shows total amount spent this month
+ * - Progress bar for overall budget usage
+ * - Lists top 2 budgets with highest spending percentage
+ * - Each budget shows name, amount spent, category icon, and progress
+ * - Color coding (red when over budget, green otherwise)
+ * 
+ * @param onPressAllBudgets - Callback function when "All Budgets" is pressed
+ */
+export function BudgetCard({ onPressAllBudgets }: BudgetCardProps) {
+  // Fetch budget data using the useBudgets hook
+  const { budgets, isLoading, error } = useBudgets();
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Animated.View entering={FadeInDown.delay(200)} style={styles.budgetCard}>
+        <View style={styles.budgetGradient}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Budget</Text>
+          </View>
+          <Text style={styles.loadingText}>Loading budgets...</Text>
+        </View>
+      </Animated.View>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Animated.View entering={FadeInDown.delay(200)} style={styles.budgetCard}>
+        <View style={styles.budgetGradient}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Budget</Text>
+          </View>
+          <Text style={styles.errorText}>{error.message}</Text>
+        </View>
+      </Animated.View>
+    );
+  }
+
+  // Calculate total budget metrics
+  const totalBudget = budgets.reduce((sum, budget) => sum + budget.budgetAmount, 0);
+  const totalSpent = budgets.reduce((sum, budget) => sum + budget.spent, 0);
+  const amountLeft = totalBudget - totalSpent;
+
+  // Get top 2 budgets by percentage spent
+  const topBudgets = [...budgets]
+    .sort((a, b) => (b.spent / b.budgetAmount) - (a.spent / a.budgetAmount))
+    .slice(0, 2)
+    .map(budget => ({
+      budgetId: budget.budgetId,
+      title: budget.budgetName,
+      spent: budget.spent,
+      icon: (budget.icon || "calculator-outline") as keyof typeof Ionicons.glyphMap,
+      iconColor: budget.color || "#2DC653",
+      iconBackground: budget.color === "#E85D75" ? "#4A2328" : "#1B4332",
+      progress: Math.min((budget.spent / budget.budgetAmount) * 100, 100),
+    }));
+
   return (
     <Animated.View entering={FadeInDown.delay(200)} style={styles.budgetCard}>
       <View style={styles.budgetGradient}>
+        {/* Header with title and "All Budgets" link */}
         <View style={styles.header}>
           <Text style={styles.title}>Budget</Text>
           <Pressable onPress={onPressAllBudgets}>
@@ -61,21 +129,32 @@ export function BudgetCard({ amountLeft, amountSpent, categories, onPressAllBudg
           </Pressable>
         </View>
 
+        {/* Total amount remaining */}
         <Text style={styles.budgetAmount}>
           {formatCurrency(amountLeft)}
           <Text style={styles.budgetLabel}>left</Text>
         </Text>
+
+        {/* Total amount spent */}
         <Text style={styles.budgetSpent}>
-          -{formatCurrency(amountSpent)} spent this month
+          -{formatCurrency(totalSpent)} spent this month
         </Text>
         
+        {/* Overall progress bar */}
         <View style={styles.progressBar}>
-          <View style={styles.progressFill} />
+          <View 
+            style={[
+              styles.progressFill,
+              { width: `${Math.min((totalSpent / totalBudget) * 100, 100)}%` }
+            ]} 
+          />
         </View>
         
+        {/* Top budgets list */}
         <View style={styles.budgetCategories}>
-          {categories.map((category, index) => (
-            <View key={index} style={styles.budgetCategory}>
+          {topBudgets.map((category) => (
+            <View key={category.budgetId} style={styles.budgetCategory}>
+              {/* Budget category info */}
               <View style={styles.categoryLeft}>
                 <View style={[styles.categoryIcon, { backgroundColor: category.iconBackground }]}>
                   <Ionicons name={category.icon} size={20} color={category.iconColor} />
@@ -87,6 +166,7 @@ export function BudgetCard({ amountLeft, amountSpent, categories, onPressAllBudg
                   </Text>
                 </View>
               </View>
+              {/* Circular progress indicator */}
               <View style={styles.progressWrapper}>
                 <CircularProgress
                   progress={category.progress}
@@ -190,5 +270,17 @@ const styles = StyleSheet.create({
   categorySpent: {
     fontSize: 14,
     color: '#666',
+  },
+  loadingText: {
+    color: '#666',
+    fontSize: 16,
+    textAlign: 'center',
+    marginVertical: 20,
+  },
+  errorText: {
+    color: '#E85D75',
+    fontSize: 16,
+    textAlign: 'center',
+    marginVertical: 20,
   },
 });

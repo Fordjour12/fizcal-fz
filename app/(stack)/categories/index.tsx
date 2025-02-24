@@ -169,24 +169,74 @@ export default function CategoriesScreen() {
         </View>
       ) : categoryList.length === 0 ? (
         <View style={styles.emptyContainer}>
+          <Ionicons name="folder-open-outline" size={64} color="#666" />
           <Text style={styles.emptyText}>No categories yet</Text>
+          <Text style={styles.emptySubtext}>Create categories to organize your budgets</Text>
           <Pressable
             style={styles.createButton}
             onPress={() => router.push("/(stack)/categories/new")}
+            accessibilityLabel="Create new category"
+            accessibilityHint="Opens the category creation screen"
           >
+            <Ionicons name="add-circle-outline" size={20} color="#fff" style={styles.createButtonIcon} />
             <Text style={styles.createButtonText}>Create Category</Text>
           </Pressable>
         </View>
       ) : (
-        <ScrollView style={styles.scrollView}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollViewContent}>
+          <Pressable
+            style={styles.addCategoryCard}
+            onPress={() => router.push("/(stack)/categories/new")}
+            accessibilityLabel="Create new category"
+            accessibilityHint="Opens the category creation screen"
+          >
+            <View style={styles.addCategoryContent}>
+              <Ionicons name="add-circle-outline" size={24} color="#666" />
+              <Text style={styles.addCategoryText}>Add New Category</Text>
+            </View>
+          </Pressable>
           {categoryList.map(renderCategory)}
         </ScrollView>
       )}
+
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollViewContent: {
+    padding: 16,
+  },
+  addCategoryCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#333',
+    borderStyle: 'dashed',
+  },
+  addCategoryContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  addCategoryText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  createButtonIcon: {
+    marginRight: 8,
+  },
+  emptySubtext: {
+    color: '#666',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+
   container: {
     flex: 1,
     backgroundColor: "#000",
@@ -248,7 +298,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 16,
+    padding: 32,
   },
   emptyText: {
     color: "#666",
